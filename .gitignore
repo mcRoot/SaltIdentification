@@ -1,3 +1,9 @@
 *.png
 *.zip
 input
+.DS_Store
+.idea
+.ipynb_checkpoints
+*.pyc
+generated_data
+__pycache__
