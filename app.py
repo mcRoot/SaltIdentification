@@ -35,17 +35,18 @@ def preprocess():
 
 def build_net():
     initializer = tf.contrib.layers.xavier_initializer(uniform=False,dtype=tf.float32)
-    x = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_channels], name="x")
-    y = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_out_layers], name="y")
+    with tf.device("/cpu:0"):
+        x = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_channels], name="x")
+        y = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
     print(x)
     prev_layer = x
     conv_layers = []
+    for i, c in enumerate(config.conv_layers):
+        conv_layers.append(tf.layers.conv2d(prev_layer, c, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-{}".format(i)))
+        prev_layer = tf.layers.dropout(conv_layers[-1], config.dropout_rate, training=training)
     with tf.device("/cpu:0"):
-        for i, c in enumerate(config.conv_layers):
-            conv_layers.append(tf.layers.conv2d(prev_layer, c, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-{}".format(i)))
-            prev_layer = tf.layers.dropout(conv_layers[-1], config.dropout_rate, training=training)
-    out_layer = tf.layers.conv2d(prev_layer, 1, 1, kernel_initializer=initializer, name="out")
+        out_layer = tf.layers.conv2d(prev_layer, 1, 1, kernel_initializer=initializer, name="out")
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
