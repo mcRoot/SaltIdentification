@@ -41,9 +41,10 @@ def build_net():
     print(x)
     prev_layer = x
     conv_layers = []
-    for i, c in enumerate(config.conv_layers):
-        conv_layers.append(tf.layers.conv2d(prev_layer, c, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-{}".format(i)))
-        prev_layer = tf.layers.dropout(conv_layers[-1], config.dropout_rate, training=training)
+    with tf.device("/cpu:0"):
+        for i, c in enumerate(config.conv_layers):
+            conv_layers.append(tf.layers.conv2d(prev_layer, c, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-{}".format(i)))
+            prev_layer = tf.layers.dropout(conv_layers[-1], config.dropout_rate, training=training)
     out_layer = tf.layers.conv2d(prev_layer, 1, 1, kernel_initializer=initializer, name="out")
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
@@ -65,7 +66,7 @@ def choose_batch(X, mask, id, rnd):
     i = rnd.choice(len(X), config.batch_size)
     return np.copy(X[i, :, :, :]), np.copy(mask[i, :, :, :]), np.copy(id[i])
 
-def train_net(X, mask, id, X_val, mask_val, loss, optimizer, out, sess):
+def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
     print("Training...")
     rnd = np.random.RandomState(seed=42)
     util.reset_vars(sess)
@@ -84,7 +85,8 @@ def train_net(X, mask, id, X_val, mask_val, loss, optimizer, out, sess):
     print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
     print("Total time {} sec".format(time.time() - start_t))
     util.save_tf_model(sess)
-    return sess.run(out, feed_dict={"x:0": X_val, "training:0": False})
+    print("Devising testset results...")
+    return sess.run(out, feed_dict={"x:0": X_test, "training:0": False})
 
 
 
@@ -109,10 +111,11 @@ if __name__ == "__main__":
         print("Devising testset results...")
         y_pred = sess.run(op_to_restore, feed_dict)
     else:
-        y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, loss, optimizer, out, sess)
+        y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]
-    y_pred = y_pred.reshape(no_test, config.img_size * config.img_size)
-    to_submit = np.apply_along_axis(util.convert_for_submission, 0, y_pred)
+    y_pred = (y_pred > 0.5) * 1.0
+    y_pred = y_pred.reshape((-1, config.img_size * config.img_size), order="F")
+    to_submit = np.apply_along_axis(util.convert_for_submission, 1, y_pred)
     submit_df = pd.DataFrame({"id": X_test_id, "rle_mask": to_submit})
     submit_df.to_csv(os.path.join(config.CACHE_PATH, "submit.csv"))
     #z = y_pred[20].reshape(config.img_size, config.img_size)
