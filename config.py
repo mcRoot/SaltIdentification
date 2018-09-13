@@ -33,4 +33,6 @@ learning_rate = 0.1
 validation_perc = 0.2
 dropout_rate = 0.2
 
+thresholds = [0.5]
+
 pred_step = 1000

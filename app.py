@@ -128,13 +128,16 @@ if __name__ == "__main__":
     else:
         y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]
-    y_pred = (y_pred > 0.5) * 1
-    y_pred = y_pred.reshape((-1, config.img_size * config.img_size), order="F")
-    to_submit = np.apply_along_axis(util.convert_for_submission, 1, y_pred)
-    assert to_submit.shape[0] == 18000
-    assert X_test_id.shape[0] == 18000
-    submit_df = pd.DataFrame({"id": X_test_id, "rle_mask": to_submit})
-    submit_df.to_csv(os.path.join(config.CACHE_PATH, "submit.csv"))
+    for th in config.thresholds:
+        y_pred_def = (y_pred > th) * 1
+        y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
+        to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
+        assert to_submit.shape[0] == 18000
+        assert X_test_id.shape[0] == 18000
+        sub = pd.DataFrame.from_dict(to_submit, orient='index')
+        sub.index.names = ['id']
+        sub.columns = ['rle_mask']
+        sub.to_csv(os.path.join(config.CACHE_PATH, "submit-{}.csv".format(th)))
     #z = y_pred[20].reshape(config.img_size, config.img_size)
     #img = ((y_pred[20] > 0.5) * 1.0).reshape(config.img_size, config.img_size)
     #f = plt.figure(figsize=(8, 6))
