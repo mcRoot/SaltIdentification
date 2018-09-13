@@ -85,7 +85,16 @@ def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
     print("Total time {} sec".format(time.time() - start_t))
     util.save_tf_model(sess)
     print("Devising testset results...")
-    return sess.run(out, feed_dict={"x:0": X_test, "training:0": False})
+    y_pred = np.empty((0, config.img_size, config.img_size, 1))
+    for j in range(int(X_test.shape[0] / config.pred_step)):
+        print("[{}] predicting...".format((j + 1)))
+        y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False})
+        y_pred = np.append(y_pred, y1, axis=0)
+    if (j + 1) * config.pred_step < X_test.shape[0]:
+        print("[{}] predicting...".format((j + 1)))
+        y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False})
+        y_pred = np.append(y_pred, y1, axis=0)
+    return y_pred
 
 
 
@@ -106,9 +115,16 @@ if __name__ == "__main__":
         print(graph)
         # Now, access the op that you want to run.
         op_to_restore = graph.get_tensor_by_name("Sigmoid:0")
-        feed_dict = {"x:0": X_test, "training:0": False}
         print("Devising testset results...")
-        y_pred = sess.run(op_to_restore, feed_dict)
+        y_pred = np.empty((0, config.img_size, config.img_size, 1))
+        for j in range(int(X_test.shape[0] / config.pred_step)):
+            print("[{}] predicting...".format((j + 1)))
+            y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False})
+            y_pred = np.append(y_pred, y1, axis=0)
+        if (j + 1) * config.pred_step < X_test.shape[0]:
+            print("[{}] predicting...".format((j + 1)))
+            y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False})
+            y_pred = np.append(y_pred, y1, axis=0)
     else:
         y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]

@@ -32,3 +32,5 @@ conv_layers = [16, 32, 64]
 learning_rate = 0.1
 validation_perc = 0.2
 dropout_rate = 0.2
+
+pred_step = 1000
