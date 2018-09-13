@@ -131,6 +131,8 @@ if __name__ == "__main__":
     y_pred = (y_pred > 0.5) * 1
     y_pred = y_pred.reshape((-1, config.img_size * config.img_size), order="F")
     to_submit = np.apply_along_axis(util.convert_for_submission, 1, y_pred)
+    assert to_submit.shape[0] == 18000
+    assert X_test_id.shape[0] == 18000
     submit_df = pd.DataFrame({"id": X_test_id, "rle_mask": to_submit})
     submit_df.to_csv(os.path.join(config.CACHE_PATH, "submit.csv"))
     #z = y_pred[20].reshape(config.img_size, config.img_size)
