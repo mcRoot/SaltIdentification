@@ -36,7 +36,7 @@ def load_set(base_path, trainset=True):
         image = get_img_cv2(file)
         assert image.shape == (101, 101)
         X_train.append(image.reshape(101, 101, 1))
-        X_train_id.append(fname.split(".")[0])
+        X_train_id.append(fname.split(".png")[0])
         if trainset:
             if config["augment"]:
                 img1, img2 =  img_flip(image)
