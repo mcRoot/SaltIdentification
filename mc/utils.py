@@ -69,7 +69,10 @@ def convert_for_submission(m):
         if c == 0 and counting:
             seq.append(count)
             counting = False
-    return  " ".join(map(str, seq))
+    if counting:
+        seq.append(count)
+        counting = False
+    return " ".join(map(str, seq))
 
 def normalize_set(dataset=[]):
     print("convert to numpy array...")
