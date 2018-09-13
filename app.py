@@ -128,7 +128,7 @@ if __name__ == "__main__":
     else:
         y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]
-    y_pred = (y_pred > 0.5) * 1.0
+    y_pred = (y_pred > 0.5) * 1
     y_pred = y_pred.reshape((-1, config.img_size * config.img_size), order="F")
     to_submit = np.apply_along_axis(util.convert_for_submission, 1, y_pred)
     submit_df = pd.DataFrame({"id": X_test_id, "rle_mask": to_submit})

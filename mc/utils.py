@@ -68,10 +68,10 @@ def convert_for_submission(m):
             counting = True
         if c == 0 and counting:
             seq.append(count)
+            count = 0
             counting = False
     if counting:
         seq.append(count)
-        counting = False
     return " ".join(map(str, seq))
 
 def normalize_set(dataset=[]):
