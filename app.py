@@ -55,11 +55,11 @@ def build_net():
     sh = p.get_shape().as_list()
     bth_size = tf.placeholder(tf.int32, name="bth_size")
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 64, 128], mean=0.0, stddev=0.02)), output_shape=[bth_size, 51, 51, 64], strides=[1, 2, 2, 1], padding="SAME")
-
+    p = tf.nn.relu(p)
     sh = p.get_shape().as_list()
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 32, 64], mean=0.0, stddev=0.02)), output_shape=[bth_size, config.img_size, config.img_size, 32],
                                strides=[1, 2, 2, 1], padding="SAME")
-
+    p = tf.nn.relu(p)
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))

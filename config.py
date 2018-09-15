@@ -32,6 +32,6 @@ learning_rate = 0.05
 validation_perc = 0.1
 #dropout_rate = 0.2
 
-thresholds = [0.5, 055, 0.7]
+thresholds = [0.5, 0.55, 0.7]
 
 pred_step = 2000
