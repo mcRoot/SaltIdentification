@@ -28,10 +28,9 @@ kernel_size = [3, 3]
 epochs = 50
 batch_size = 30
 display_steps = 10
-conv_layers = [16, 32, 64]
 learning_rate = 0.1
-validation_perc = 0.2
-dropout_rate = 0.2
+validation_perc = 0.4
+#dropout_rate = 0.2
 
 thresholds = [0.5]
 
