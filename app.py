@@ -53,10 +53,11 @@ def build_net():
     p = tf.layers.conv2d(p, 32, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-6")
     sh = p.get_shape().as_list()
-    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 16, 32], mean=0.0, stddev=0.02)), output_shape=[config.batch_size, 51, 51, 16], strides=[1, 2, 2, 1], padding="SAME")
+    bth_size = tf.placeholder(tf.int16, name="bth_size")
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 16, 32], mean=0.0, stddev=0.02)), output_shape=[bth_size, 51, 51, 16], strides=[1, 2, 2, 1], padding="SAME")
 
     sh = p.get_shape().as_list()
-    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 8, 16], mean=0.0, stddev=0.02)), output_shape=[config.batch_size, config.img_size, config.img_size, 8],
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 8, 16], mean=0.0, stddev=0.02)), output_shape=[bth_size, config.img_size, config.img_size, 8],
                                strides=[1, 2, 2, 1], padding="SAME")
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
@@ -87,14 +88,14 @@ def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
     start_t = time.time()
     for i in range(config.epochs):
         batch, mask_batch, id_batch = choose_batch(X, mask, id, rnd)
-        sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True})
+        sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
         if(i % config.display_steps == 0):
-            cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False})
-            cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False})
+            cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
+            cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
             print("Iteration {}".format(i))
             print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
-    cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False})
-    cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False})
+    cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
+    cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
     print("Iteration {}".format(i))
     print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
     print("Total time {} sec".format(time.time() - start_t))
@@ -103,11 +104,11 @@ def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
     y_pred = np.empty((0, config.img_size, config.img_size, 1))
     for j in range(int(X_test.shape[0] / config.pred_step)):
         print("[{}] predicting...".format((j + 1)))
-        y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False})
+        y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
         y_pred = np.append(y_pred, y1, axis=0)
     if (j + 1) * config.pred_step < X_test.shape[0]:
         print("[{}] predicting...".format((j + 1)))
-        y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False})
+        y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
         y_pred = np.append(y_pred, y1, axis=0)
     return y_pred
 
@@ -134,11 +135,11 @@ if __name__ == "__main__":
         y_pred = np.empty((0, config.img_size, config.img_size, 1))
         for j in range(int(X_test.shape[0] / config.pred_step)):
             print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False})
+            y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
         if (j + 1) * config.pred_step < X_test.shape[0]:
             print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False})
+            y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
     else:
         y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
