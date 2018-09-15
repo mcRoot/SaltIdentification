@@ -25,13 +25,13 @@ img_shape = (img_size, img_size)
 n_out_layers = 1
 n_channels = 1
 kernel_size = [3, 3]
-epochs = 50
+epochs = 1000
 batch_size = 30
-display_steps = 10
-learning_rate = 0.1
-validation_perc = 0.4
+display_steps = 50
+learning_rate = 0.05
+validation_perc = 0.1
 #dropout_rate = 0.2
 
-thresholds = [0.5]
+thresholds = [0.5, 055, 0.7]
 
-pred_step = 1000
+pred_step = 2000

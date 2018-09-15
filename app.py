@@ -38,26 +38,26 @@ def build_net():
     x = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_channels], name="x")
     y = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
-    p = tf.layers.conv2d(x, 8, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-1")
-    p = tf.layers.conv2d(p, 8, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-2")
+    p = tf.layers.conv2d(x, 32, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-1")
+    p = tf.layers.conv2d(p, 32, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-2")
 
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
-    p = tf.layers.conv2d(p, 16, config.kernel_size, kernel_initializer=initializer, padding="same",
+    p = tf.layers.conv2d(p, 64, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-3")
-    p = tf.layers.conv2d(p, 16, config.kernel_size, kernel_initializer=initializer, padding="same",
+    p = tf.layers.conv2d(p, 64, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-4")
 
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
-    p = tf.layers.conv2d(p, 32, config.kernel_size, kernel_initializer=initializer, padding="same",
+    p = tf.layers.conv2d(p, 128, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-5")
-    p = tf.layers.conv2d(p, 32, config.kernel_size, kernel_initializer=initializer, padding="same",
+    p = tf.layers.conv2d(p, 128, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-6")
     sh = p.get_shape().as_list()
     bth_size = tf.placeholder(tf.int32, name="bth_size")
-    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 16, 32], mean=0.0, stddev=0.02)), output_shape=[bth_size, 51, 51, 16], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 64, 128], mean=0.0, stddev=0.02)), output_shape=[bth_size, 51, 51, 64], strides=[1, 2, 2, 1], padding="SAME")
 
     sh = p.get_shape().as_list()
-    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 8, 16], mean=0.0, stddev=0.02)), output_shape=[bth_size, config.img_size, config.img_size, 8],
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 32, 64], mean=0.0, stddev=0.02)), output_shape=[bth_size, config.img_size, config.img_size, 32],
                                strides=[1, 2, 2, 1], padding="SAME")
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
@@ -90,14 +90,14 @@ def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
         batch, mask_batch, id_batch = choose_batch(X, mask, id, rnd)
         sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
         if(i % config.display_steps == 0):
-            cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
+            cost = sess.run(loss, feed_dict={"x:0": X[:3000,:,:,:], "y:0": mask[:3000,:,:,:], "training:0": False, "bth_size:0": 3000})
             cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
             print("Iteration {}".format(i))
             print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
-    cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
-    cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+    #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
+    #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
     print("Iteration {}".format(i))
-    print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
+    #print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
     print("Total time {} sec".format(time.time() - start_t))
     util.save_tf_model(sess)
     print("Devising testset results...")
