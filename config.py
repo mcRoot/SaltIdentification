@@ -26,9 +26,9 @@ n_out_layers = 1
 n_channels = 1
 kernel_size = [3, 3]
 epochs = 1000
-batch_size = 30
+batch_size = 80
 display_steps = 50
-learning_rate = 0.05
+learning_rate = 0.01
 validation_perc = 0.1
 #dropout_rate = 0.2
 

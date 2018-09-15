@@ -79,6 +79,7 @@ def train_validation(X_train, X_train_mask, X_train_id):
 
 def choose_batch(X, mask, id, rnd):
     i = rnd.choice(len(X), config.batch_size)
+    print("batch {}".format(i))
     return np.copy(X[i, :, :, :]), np.copy(mask[i, :, :, :]), np.copy(id[i])
 
 def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
@@ -90,7 +91,7 @@ def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
         batch, mask_batch, id_batch = choose_batch(X, mask, id, rnd)
         sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
         if(i % config.display_steps == 0):
-            cost = sess.run(loss, feed_dict={"x:0": X[:3000,:,:,:], "y:0": mask[:3000,:,:,:], "training:0": False, "bth_size:0": 3000})
+            cost = sess.run(loss, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": config.batch_size})
             cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
             print("Iteration {}".format(i))
             print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
