@@ -53,7 +53,7 @@ def build_net():
     p = tf.layers.conv2d(p, 32, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-6")
     sh = p.get_shape().as_list()
-    bth_size = tf.placeholder(tf.int16, name="bth_size")
+    bth_size = tf.placeholder(tf.int32, name="bth_size")
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 16, 32], mean=0.0, stddev=0.02)), output_shape=[bth_size, 51, 51, 16], strides=[1, 2, 2, 1], padding="SAME")
 
     sh = p.get_shape().as_list()
