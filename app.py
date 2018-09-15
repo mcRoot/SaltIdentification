@@ -74,7 +74,7 @@ def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
         batch, mask_batch, id_batch = choose_batch(X, mask, id, rnd)
         sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True})
         if(i % config.display_steps == 0):
-            cost = "skipped"#cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False})
+            cost = 0#cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False})
             cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False})
             print("Iteration {}".format(i))
             print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
@@ -132,7 +132,6 @@ if __name__ == "__main__":
         y_pred_def = (y_pred > th) * 1
         y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
         to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
-        assert to_submit.shape[0] == 18000
         assert X_test_id.shape[0] == 18000
         sub = pd.DataFrame.from_dict(to_submit, orient='index')
         sub.index.names = ['id']
