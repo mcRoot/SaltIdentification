@@ -96,8 +96,8 @@ def build_net():
 def train_validation(X_train, X_train_mask, X_train_id):
     assert len(X_train) == len(X_train_mask)
     assert len(X_train) == len (X_train_id)
-    p = np.random.RandomState(seed=42).permutation(len(X_train))
-    X_train, X_train_mask, X_train_id =  X_train[p], X_train_mask[p], X_train_id[p]
+    p = np.random.RandomState(seed=1977).permutation(len(X_train))
+    X_train, X_train_mask, X_train_id =  np.copy(X_train[p]), np.copy(X_train_mask[p]), np.copy(X_train_id[p])
     sep = np.int16(len(X_train) * config.validation_perc)
     val_border = len(X_train) - sep
     return X_train[:val_border,:,:,:], X_train_mask[:val_border,:,:,:], X_train_id[:val_border], \
