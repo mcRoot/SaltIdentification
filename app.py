@@ -61,7 +61,6 @@ def build_net():
     p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-8")
 
-    sh = p.get_shape().as_list()
     bth_size = tf.placeholder(tf.int32, name="bth_size")
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 512, 1024], mean=0.0, stddev=0.02)),
                                output_shape=[bth_size, 7, 7, 512], strides=[1, 2, 2, 1], padding="SAME")
@@ -91,7 +90,7 @@ def build_net():
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
-    optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate=config.learning_rate).minimize(loss)
     return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer")
 
 def train_validation(X_train, X_train_mask, X_train_id):
