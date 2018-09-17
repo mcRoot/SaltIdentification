@@ -38,9 +38,8 @@ def build_net():
     x = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_channels], name="x")
     y = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
-    p = tf.layers.conv2d(x, 32, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-1")
 
-    p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
     p = tf.layers.conv2d(p, 64, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-3")
 
@@ -64,19 +63,28 @@ def build_net():
     bth_size = tf.placeholder(tf.int32, name="bth_size")
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 512, 1024], mean=0.0, stddev=0.02)),
                                output_shape=[bth_size, 7, 7, 512], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([1024], mean=0.0, stddev=0.02)))
+    p = tf.nn.relu(p)
 
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 256, 512], mean=0.0, stddev=0.02)),
                                output_shape=[bth_size, 13, 13, 256], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([512], mean=0.0, stddev=0.02)))
     p = tf.nn.relu(p)
+
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 128, 256], mean=0.0, stddev=0.02)), output_shape=[bth_size, 26, 26, 128], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([256], mean=0.0, stddev=0.02)))
     p = tf.nn.relu(p)
-    sh = p.get_shape().as_list()
+
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 64, 128], mean=0.0, stddev=0.02)), output_shape=[bth_size, 51, 51, 64],
                                strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([128], mean=0.0, stddev=0.02)))
     p = tf.nn.relu(p)
-    sh = p.get_shape().as_list()
+
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 32, 64], mean=0.0, stddev=0.02)), output_shape=[bth_size, config.img_size, config.img_size, 32],
                                strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([64], mean=0.0, stddev=0.02)))
+    p = tf.nn.relu(p)
+
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
