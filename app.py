@@ -40,24 +40,24 @@ def build_net():
     training = tf.placeholder(tf.bool, name="training")
     p = tf.layers.conv2d(x, 32, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-2")
-
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+
     p = tf.layers.conv2d(p, 64, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-3")
-
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+
     p = tf.layers.conv2d(p, 128, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-5")
-
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+
     p = tf.layers.conv2d(p, 256, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-6")
-
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+
     p = tf.layers.conv2d(p, 512, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-7")
-
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+
     p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-8")
 
@@ -108,13 +108,13 @@ def choose_batch(X, mask, id, rnd):
     #print("batch {}".format(i))
     return np.copy(X[i, :, :, :]), np.copy(mask[i, :, :, :]), np.copy(id[i])
 
-def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
+def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, sess):
     print("Training...")
     rnd = np.random.RandomState(seed=1977)
     util.reset_vars(sess)
     start_t = time.time()
     for i in range(config.epochs):
-        batch, mask_batch, id_batch = choose_batch(X, mask, id, rnd)
+        batch, mask_batch, id_batch = choose_batch(X, mask, id_tr, rnd)
         sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
         if(i % config.display_steps == 0):
             cost = sess.run(loss, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": config.batch_size})
