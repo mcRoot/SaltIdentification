@@ -113,7 +113,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
     start_t = time.time()
     for i in range(config.epochs):
         batch, mask_batch, id_batch = choose_batch(X, mask, id_tr, rnd)
-        sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
+        loss, _ = sess.run([loss, optimizer], feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
         if(i % config.display_steps == 0):
             cost = sess.run(loss, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": config.batch_size})
             cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
