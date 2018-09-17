@@ -56,8 +56,15 @@ def build_net():
     p = tf.layers.conv2d(p, 512, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-7")
 
+    p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same",
+                         activation=tf.nn.relu, name="conv-8")
+
     sh = p.get_shape().as_list()
     bth_size = tf.placeholder(tf.int32, name="bth_size")
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 512, 1024], mean=0.0, stddev=0.02)),
+                               output_shape=[bth_size, 7, 7, 512], strides=[1, 2, 2, 1], padding="SAME")
+
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 256, 512], mean=0.0, stddev=0.02)),
                                output_shape=[bth_size, 13, 13, 256], strides=[1, 2, 2, 1], padding="SAME")
     p = tf.nn.relu(p)
@@ -141,16 +148,16 @@ if __name__ == "__main__":
         graph = tf.get_default_graph()
         print(graph)
         # Now, access the op that you want to run.
-        op_to_restore = graph.get_tensor_by_name("Sigmoid:0")
+        op_to_restore = graph.get_tensor_by_name("out:0")
         print("Devising testset results...")
         y_pred = np.empty((0, config.img_size, config.img_size, 1))
         for j in range(int(X_test.shape[0] / config.pred_step)):
             print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+            y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
         if (j + 1) * config.pred_step < X_test.shape[0]:
             print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+            y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
     else:
         y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
