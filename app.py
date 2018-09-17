@@ -119,7 +119,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
             cost = sess.run([loss], feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": config.batch_size})
             cost_test = sess.run([loss], feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
             print("Iteration {}".format(i))
-            print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
+            print("Loss -> train: {}, test: {}".format(cost, cost_test))
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
     print("Iteration {}".format(i))
