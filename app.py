@@ -110,7 +110,7 @@ def choose_batch(X, mask, id, rnd):
 
 def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
     print("Training...")
-    rnd = np.random.RandomState(seed=42)
+    rnd = np.random.RandomState(seed=1977)
     util.reset_vars(sess)
     start_t = time.time()
     for i in range(config.epochs):
