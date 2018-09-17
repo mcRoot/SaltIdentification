@@ -39,27 +39,29 @@ def build_net():
     y = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
     p = tf.layers.conv2d(x, 32, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-1")
-    p = tf.layers.conv2d(p, 32, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-2")
 
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
     p = tf.layers.conv2d(p, 64, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-3")
-    p = tf.layers.conv2d(p, 64, config.kernel_size, kernel_initializer=initializer, padding="same",
-                         activation=tf.nn.relu, name="conv-4")
 
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
     p = tf.layers.conv2d(p, 128, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=tf.nn.relu, name="conv-5")
-    p = tf.layers.conv2d(p, 128, config.kernel_size, kernel_initializer=initializer, padding="same",
-                         activation=tf.nn.relu, name="conv-6")
+    p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.layers.conv2d(p, 256, config.kernel_size, kernel_initializer=initializer, padding="same",
+                         activation=tf.nn.relu, name="conv-6")    
+
     sh = p.get_shape().as_list()
     bth_size = tf.placeholder(tf.int32, name="bth_size")
-    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 64, 128], mean=0.0, stddev=0.02)), output_shape=[bth_size, 51, 51, 64], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 128, 256], mean=0.0, stddev=0.02)), output_shape=[bth_size, 26, 26, 128], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.relu(p)
+    sh = p.get_shape().as_list()
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 64, 128], mean=0.0, stddev=0.02)), output_shape=[bth_size, 51, 51, 64],
+                               strides=[1, 2, 2, 1], padding="SAME")
     p = tf.nn.relu(p)
     sh = p.get_shape().as_list()
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 32, 64], mean=0.0, stddev=0.02)), output_shape=[bth_size, config.img_size, config.img_size, 32],
                                strides=[1, 2, 2, 1], padding="SAME")
-    p = tf.nn.relu(p)
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
@@ -79,7 +81,7 @@ def train_validation(X_train, X_train_mask, X_train_id):
 
 def choose_batch(X, mask, id, rnd):
     i = rnd.choice(len(X), config.batch_size)
-    print("batch {}".format(i))
+    #print("batch {}".format(i))
     return np.copy(X[i, :, :, :]), np.copy(mask[i, :, :, :]), np.copy(id[i])
 
 def train_net(X, mask, id, X_val, mask_val, X_test, loss, optimizer, out, sess):
