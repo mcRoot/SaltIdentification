@@ -82,7 +82,7 @@ def build_net():
                                                                labels= tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
     optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
-    return loss, optimizer, tf.nn.sigmoid(out_layer)
+    return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer")
 
 def train_validation(X_train, X_train_mask, X_train_id):
     assert len(X_train) == len(X_train_mask)
@@ -148,7 +148,7 @@ if __name__ == "__main__":
         graph = tf.get_default_graph()
         print(graph)
         # Now, access the op that you want to run.
-        op_to_restore = graph.get_tensor_by_name("out:0")
+        op_to_restore = graph.get_tensor_by_name("predictlayer:0")
         print("Devising testset results...")
         y_pred = np.empty((0, config.img_size, config.img_size, 1))
         for j in range(int(X_test.shape[0] / config.pred_step)):
