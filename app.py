@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
+import cv2
 
 def preprocess():
     print("Preprocessing...")
@@ -15,7 +16,7 @@ def preprocess():
         X_train_id = util.load_cache(os.path.join(config.CACHE_PATH, config.config['train_id_persisted']))
         X_train_mask = util.load_cache(os.path.join(config.CACHE_PATH, config.config['mask_persisted']))
     else:
-        X_train, X_train_id, X_train_mask = util.load_set(config.config["base_path"], True)
+        X_train, X_train_id, X_train_mask, _, _ = util.load_set(config.config["base_path"], True)
         X_train = util.normalize_set(X_train)
         X_train_mask = util.normalize_set(X_train_mask)
         util.persist(os.path.join(config.CACHE_PATH, config.config['train_persisted']), X_train)
@@ -27,11 +28,11 @@ def preprocess():
         X_test = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test_persisted']))
         X_test_id = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']))
     else:
-        X_test, X_test_id, _ = util.load_set(config.config["base_path"], False)
+        X_test, X_test_id, _, X_test_0, X_test_1 = util.load_set(config.config["base_path"], False)
         X_test = util.normalize_set(X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
-    return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object)
+    return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object), X_test_0, X_test_1
 
 def build_net():
     initializer = tf.contrib.layers.xavier_initializer(uniform=False,dtype=tf.float32)
@@ -117,7 +118,7 @@ def choose_batch(X, mask, id, rnd):
     #print("batch {}".format(i))
     return np.copy(X[i, :, :, :]), np.copy(mask[i, :, :, :]), np.copy(id[i])
 
-def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, sess):
+def train_net(X, mask, id_tr, X_val, mask_val, X_test, X_test_0, X_test_1, loss, optimizer, out, sess):
     print("Training...")
     rnd = np.random.RandomState(seed=1977)
     util.reset_vars(sess)
@@ -138,20 +139,35 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
     util.save_tf_model(sess)
     print("Devising testset results...")
     y_pred = np.empty((0, config.img_size, config.img_size, 1))
+    y_pred_0 = np.empty((0, config.img_size, config.img_size, 1))
+    y_pred_1 = np.empty((0, config.img_size, config.img_size, 1))
+
     for j in range(int(X_test.shape[0] / config.pred_step)):
         print("[{}] predicting...".format((j + 1)))
         y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
         y_pred = np.append(y_pred, y1, axis=0)
+        y1 = sess.run(out, feed_dict={"x:0": X_test_0[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+        y_pred_0 = np.append(y_pred_0, y1, axis=0)
+        y1 = sess.run(out, feed_dict={"x:0": X_test_1[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
+                                      "training:0": False, "bth_size:0": config.pred_step})
+        y_pred_1 = np.append(y_pred_1, y1, axis=0)
+
     if (j + 1) * config.pred_step < X_test.shape[0]:
         print("[{}] predicting...".format((j + 1)))
         y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
         y_pred = np.append(y_pred, y1, axis=0)
-    return y_pred
+        y1 = sess.run(out, feed_dict={"x:0": X_test_0[(j + 1) * config.pred_step:, :, :, :], "training:0": False,
+                                      "bth_size:0": config.pred_step})
+        y_pred_0 = np.append(y_pred_0, y1, axis=0)
+        y1 = sess.run(out, feed_dict={"x:0": X_test_1[(j + 1) * config.pred_step:, :, :, :], "training:0": False,
+                                      "bth_size:0": config.pred_step})
+        y_pred_1 = np.append(y_pred_1, y1, axis=0)
+    return y_pred, y_pred_0, y_pred_1
 
 
 
 if __name__ == "__main__":
-    X_train, X_train_id, X_train_mask, X_test, X_test_id = preprocess()
+    X_train, X_train_id, X_train_mask, X_test, X_test_id, X_test_0, X_test_1 = preprocess()
     X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)
     loss, optimizer, out = build_net()
@@ -178,11 +194,24 @@ if __name__ == "__main__":
             y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
     else:
-        y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
+        y_pred, y_pred_0, y_pred_1 = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, X_test_0, X_test_1, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]
     for th in config.thresholds:
         y_pred_def = (y_pred > th) * 1
         y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
+
+        y_pred_def_0 = (y_pred_0 > th) * 1
+        v = np.vectorize(lambda x: cv2.flip(x, 0))
+        y_pred_def_0 = v(y_pred_def_0)
+        y_pred_def_0 = y_pred_def_0.reshape((-1, config.img_size * config.img_size), order="F")
+
+        y_pred_def_1 = (y_pred_1 > th) * 1
+        v = np.vectorize(lambda x: cv2.flip(x, 1))
+        y_pred_def_1 = v(y_pred_def_1)
+        y_pred_def_1 = y_pred_def_1.reshape((-1, config.img_size * config.img_size), order="F")
+
+        y_pred_def = (y_pred_def + y_pred_def_0 + y_pred_def_1) / 3.0
+
         to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
         assert X_test_id.shape[0] == 18000
         sub = pd.DataFrame.from_dict(to_submit, orient='index')

@@ -5,7 +5,7 @@ import os
 import glob
 import dill
 import tensorflow as tf
-from config import config
+from config import config, resize_image, img_size, tta
 from config import MODEL_FILENAME, CACHE_PATH
 
 
@@ -22,6 +22,8 @@ def load_set(base_path, trainset=True):
     X_train = []
     X_train_id = []
     X_train_mask = []
+    X_train_flip_0 = []
+    X_train_flip_1 = []
     start_time = time.time()
     setpath = None
     if trainset:
@@ -39,6 +41,11 @@ def load_set(base_path, trainset=True):
         assert image.shape == (img_size, img_size)
         X_train.append(image.reshape(img_size, img_size, 1))
         X_train_id.append(fname.split(".png")[0])
+        if not trainset:
+            if tta:
+                img1, img2 = img_flip(image)
+                X_train_flip_0.append(img1.reshape(img_size, img_size, 1))
+                X_train_flip_1.append(img2.reshape(img_size, img_size, 1))
         if trainset:
             if config["augment"]:
                 img1, img2 =  img_flip(image)
@@ -55,7 +62,7 @@ def load_set(base_path, trainset=True):
                 X_train_mask.append(img2.reshape(101, 101, 1))
 
     print("Load images complete - total time {0:.2f} sec".format((time.time() - start_time)))
-    return X_train, X_train_id, X_train_mask
+    return X_train, X_train_id, X_train_mask, X_train_flip_0, X_train_flip_1
 
 def convert_for_submission(m):
     counting = False

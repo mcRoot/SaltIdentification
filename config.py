@@ -21,6 +21,7 @@ CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
 resize_image = False
+tta = True
 img_size = 101
 img_shape = (img_size, img_size)
 n_out_layers = 1
