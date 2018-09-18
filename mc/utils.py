@@ -52,7 +52,7 @@ def load_set(base_path, trainset=True):
             if config["augment"]:
                 img1, img2 =  img_flip(image)
                 X_train_mask.append(img1.reshape(101, 101, 1))
-                X_train_mask.append(img2.reshape(img_size, 101, 1))
+                X_train_mask.append(img2.reshape(101, 101, 1))
 
     print("Load images complete - total time {0:.2f} sec".format((time.time() - start_time)))
     return X_train, X_train_id, X_train_mask
