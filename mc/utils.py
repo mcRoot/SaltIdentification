@@ -36,23 +36,23 @@ def load_set(base_path, trainset=True):
     for file in files:
         fname = os.path.basename(file)
         image = get_img_cv2(file)
-        assert image.shape == (101, 101)
-        X_train.append(image.reshape(101, 101, 1))
+        assert image.shape == (img_size, img_size)
+        X_train.append(image.reshape(img_size, img_size, 1))
         X_train_id.append(fname.split(".png")[0])
         if trainset:
             if config["augment"]:
                 img1, img2 =  img_flip(image)
-                X_train.append(img1.reshape(101, 101, 1))
+                X_train.append(img1.reshape(img_size, img_size, 1))
                 X_train_id.append(fname.split(".")[0])
-                X_train.append(img2.reshape(101, 101, 1))
+                X_train.append(img2.reshape(img_size, img_size, 1))
                 X_train_id.append(fname.split(".")[0])
             maskfname = os.path.join(base_mask, fname)
             image = get_img_cv2(maskfname)
-            X_train_mask.append(image.reshape(101, 101, 1))
+            X_train_mask.append(image.reshape(img_size, img_size, 1))
             if config["augment"]:
                 img1, img2 =  img_flip(image)
-                X_train_mask.append(img1.reshape(101, 101, 1))
-                X_train_mask.append(img2.reshape(101, 101, 1))
+                X_train_mask.append(img1.reshape(img_size, img_size, 1))
+                X_train_mask.append(img2.reshape(img_size, img_size, 1))
 
     print("Load images complete - total time {0:.2f} sec".format((time.time() - start_time)))
     return X_train, X_train_id, X_train_mask
