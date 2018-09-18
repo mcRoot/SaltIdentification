@@ -30,6 +30,8 @@ def preprocess():
     else:
         X_test, X_test_id, _, X_test_0, X_test_1 = util.load_set(config.config["base_path"], False)
         X_test = util.normalize_set(X_test)
+        X_test_0 = util.normalize_set(X_test_0)
+        X_test_1 = util.normalize_set(X_test_1)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
     return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object), X_test_0, X_test_1
