@@ -94,13 +94,14 @@ def build_net():
     p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([32], mean=0.0, stddev=0.02)))
     p = tf.nn.relu(p)
 
-    out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
-    print("outlayer: {}".format(out_layer))
-    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
+    out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out", activation=tf.nn.relu)
+    real_out = tf.layers.dense(out_layer, 101, activation=None)
+    print("outlayer: {}".format(real_out))
+    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(real_out, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
     optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
-    return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer")
+    return loss, optimizer, tf.nn.sigmoid(real_out, name="predictlayer")
 
 def train_validation(X_train, X_train_mask, X_train_id):
     assert len(X_train) == len(X_train_mask)
