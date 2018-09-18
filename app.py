@@ -203,18 +203,18 @@ if __name__ == "__main__":
         y_pred, y_pred_0, y_pred_1 = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, X_test_0, X_test_1, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]
     for th in config.thresholds:
-        y_pred_def = (y_pred > th) * 1
+        y_pred_def = y_pred#(y_pred > th) * 1
         y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
         y_pred_def.shape[0] == 18000
 
-        y_pred_def_0 = (y_pred_0 > th) * 1
+        y_pred_def_0 = y_pred_0#(y_pred_0 > th) * 1
         y_pred_def_0 = [cv2.flip(r, 0) for r in y_pred_def_0]
         len(y_pred_def_0) == 18000
         y_pred_def_0 = np.array(y_pred_def_0)
         y_pred_def_0 = y_pred_def_0.reshape((-1, config.img_size * config.img_size), order="F")
         y_pred_def_0.shape[0] == 18000
 
-        y_pred_def_1 = (y_pred_1 > th) * 1
+        y_pred_def_1 = y_pred_1#(y_pred_1 > th) * 1
         y_pred_def_1 = [cv2.flip(r, 1) for r in y_pred_def_1]
         len(y_pred_def_1) == 18000
         y_pred_def_1 = np.array(y_pred_def_1)
@@ -222,6 +222,7 @@ if __name__ == "__main__":
         y_pred_def_1.shape[0] == 18000
 
         y_pred_def = (y_pred_def + y_pred_def_0 + y_pred_def_1) / 3.0
+        y_pred_def = (y_pred_def > th) * 1
 
         to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
         assert X_test_id.shape[0] == 18000
