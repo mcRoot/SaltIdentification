@@ -201,6 +201,7 @@ if __name__ == "__main__":
     for th in config.thresholds:
         y_pred_def = (y_pred > th) * 1
         y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
+        y_pred_def.shape[0] == 18000
 
         y_pred_def_0 = (y_pred_0 > th) * 1
         y_pred_def_0 = [cv2.flip(r, 0) for r in y_pred_def_0]
