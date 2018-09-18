@@ -26,6 +26,8 @@ def preprocess():
     preprocessed_file = os.path.join(config.CACHE_PATH, config.config['test_persisted'])
     if os.path.isfile(preprocessed_file):
         X_test = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test_persisted']))
+        X_test_0 = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test0_persisted']))
+        X_test_1 = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test1_persisted']))
         X_test_id = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']))
     else:
         X_test, X_test_id, _, X_test_0, X_test_1 = util.load_set(config.config["base_path"], False)
@@ -34,6 +36,8 @@ def preprocess():
         X_test_1 = util.normalize_set(X_test_1)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
+        util.persist(os.path.join(config.CACHE_PATH, config.config['test0_persisted']), X_test_0)
+        util.persist(os.path.join(config.CACHE_PATH, config.config['test1_persisted']), X_test_1)
     return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object), X_test_0, X_test_1
 
 def build_net():

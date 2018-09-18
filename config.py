@@ -5,6 +5,8 @@ config = {
     "train_dir": "train",
     "train_persisted": "train.pck",
     "test_persisted": "test.pck",
+    "test0_persisted": "test0.pck",
+    "test1_persisted": "test1.pck",
     "mask_persisted": "mask.pck",
     "test_id_persisted": "test_id.pck",
     "train_id_persisted": "train_id.pck",
