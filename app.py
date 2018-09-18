@@ -204,13 +204,17 @@ if __name__ == "__main__":
 
         y_pred_def_0 = (y_pred_0 > th) * 1
         y_pred_def_0 = [cv2.flip(r, 0) for r in y_pred_def_0]
+        y_pred_def_0.shape[0] == 18000
         y_pred_def_0 = np.array(y_pred_def_0)
         y_pred_def_0 = y_pred_def_0.reshape((-1, config.img_size * config.img_size), order="F")
+        y_pred_def_0.shape[0] == 18000
 
         y_pred_def_1 = (y_pred_1 > th) * 1
         y_pred_def_1 = [cv2.flip(r, 1) for r in y_pred_def_1]
+        y_pred_def_1.shape[0] == 18000
         y_pred_def_1 = np.array(y_pred_def_1)
         y_pred_def_1 = y_pred_def_1.reshape((-1, config.img_size * config.img_size), order="F")
+        y_pred_def_1.shape[0] == 18000
 
         y_pred_def = (y_pred_def + y_pred_def_0 + y_pred_def_1) / 3.0
 
