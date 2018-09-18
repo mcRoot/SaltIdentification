@@ -95,7 +95,7 @@ def build_net():
     p = tf.nn.relu(p)
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out", activation=tf.nn.relu)
-    real_out = tf.layers.dense(out_layer, 101, activation=None)
+    real_out = tf.layers.dense(out_layer, 101 * 101, activation=None)
     print("outlayer: {}".format(real_out))
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(real_out, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
