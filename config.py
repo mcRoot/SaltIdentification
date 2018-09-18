@@ -17,10 +17,12 @@ config = {
     "augment": True
 }
 
+
 CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
-img_size = 101
+resize_image = True
+img_size = 128
 img_shape = (img_size, img_size)
 n_out_layers = 1
 n_channels = 1

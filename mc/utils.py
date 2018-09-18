@@ -6,11 +6,13 @@ import glob
 import dill
 import tensorflow as tf
 from config import config
-from config import MODEL_FILENAME, CACHE_PATH
+from config import MODEL_FILENAME, CACHE_PATH, resize_image, img_size
 
 
 def get_img_cv2(path):
     img = cv2.imread(path, 0)
+    if resize_image:
+        img = cv2.resize(img, (img_size, img_size))
     return img
 
 def img_flip(img):
