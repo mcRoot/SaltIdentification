@@ -89,7 +89,7 @@ def build_net():
     p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([64], mean=0.0, stddev=0.02)))
     p = tf.nn.relu(p)
 
-    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 32, 64], mean=0.0, stddev=0.02)), output_shape=[bth_size, 101, 101, 32],
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 32, 64], mean=0.0, stddev=0.02)), output_shape=[bth_size, 128, 128, 32],
                                strides=[1, 2, 2, 1], padding="SAME")
     p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([32], mean=0.0, stddev=0.02)))
     p = tf.nn.relu(p)
