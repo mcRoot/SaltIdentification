@@ -100,7 +100,7 @@ def build_net():
     p = tf.layers.conv2d(p, 32, 4, kernel_initializer=initializer, padding="VALID", activation=tf.nn.relu, name="conv-3b")
 
 
-    out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out", activation=tf.nn.relu)
+    out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
