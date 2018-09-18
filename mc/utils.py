@@ -9,9 +9,9 @@ from config import config
 from config import MODEL_FILENAME, CACHE_PATH, resize_image, img_size
 
 
-def get_img_cv2(path):
+def get_img_cv2(path, mask=False):
     img = cv2.imread(path, 0)
-    if resize_image:
+    if not mask and resize_image:
         img = cv2.resize(img, (img_size, img_size))
     return img
 
@@ -47,12 +47,12 @@ def load_set(base_path, trainset=True):
                 X_train.append(img2.reshape(img_size, img_size, 1))
                 X_train_id.append(fname.split(".")[0])
             maskfname = os.path.join(base_mask, fname)
-            image = get_img_cv2(maskfname)
-            X_train_mask.append(image.reshape(img_size, img_size, 1))
+            image = get_img_cv2(maskfname, mask=True)
+            X_train_mask.append(image.reshape(101, 101, 1))
             if config["augment"]:
                 img1, img2 =  img_flip(image)
-                X_train_mask.append(img1.reshape(img_size, img_size, 1))
-                X_train_mask.append(img2.reshape(img_size, img_size, 1))
+                X_train_mask.append(img1.reshape(101, 101, 1))
+                X_train_mask.append(img2.reshape(img_size, 101, 1))
 
     print("Load images complete - total time {0:.2f} sec".format((time.time() - start_time)))
     return X_train, X_train_id, X_train_mask
