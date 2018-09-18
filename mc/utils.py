@@ -6,7 +6,7 @@ import glob
 import dill
 import tensorflow as tf
 from config import config
-from config import MODEL_FILENAME, CACHE_PATH, resize_image, img_size
+from config import MODEL_FILENAME, CACHE_PATH
 
 
 def get_img_cv2(path, mask=False):
