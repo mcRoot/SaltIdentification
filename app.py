@@ -85,7 +85,7 @@ def build_net():
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 128, 256], mean=0.0, stddev=0.02)), output_shape=[bth_size, 28, 28, 128], strides=[1, 2, 2, 1], padding="SAME")
     #p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([128], mean=0.0, stddev=0.02)))
     #p = tf.nn.relu(p)
-    p = tf.layers.conv2d(p, 128, config.kernel_size, kernel_initializer=initializer, padding="VALID", activation=tf.nn.relu, name="conv-1b")
+    p = tf.layers.conv2d(p, 128, config.kernel_size, kernel_initializer=initializer, padding="VALID", activation=tf.nn.relu, name="conv-2b")
 
 
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 64, 128], mean=0.0, stddev=0.02)), output_shape=[bth_size, 52, 52, 64],
@@ -97,7 +97,7 @@ def build_net():
                                strides=[1, 2, 2, 1], padding="SAME")
     #p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([32], mean=0.0, stddev=0.02)))
     #p = tf.nn.relu(p)
-    p = tf.layers.conv2d(p, 32, 4, kernel_initializer=initializer, padding="VALID", activation=tf.nn.relu, name="conv-1b")
+    p = tf.layers.conv2d(p, 32, 4, kernel_initializer=initializer, padding="VALID", activation=tf.nn.relu, name="conv-3b")
 
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out", activation=tf.nn.relu)
