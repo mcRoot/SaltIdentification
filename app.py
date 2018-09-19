@@ -114,9 +114,6 @@ def build_net():
                                                                labels= tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
     optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
-    aug_ops = []
-    if config.flip:
-        aug_ops.append(tf.image.random_flip_up_down)
 
     return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer")
 
