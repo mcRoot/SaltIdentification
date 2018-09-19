@@ -3,6 +3,7 @@ import os
 config = {
     "base_path": "./input",
     "train_dir": "train",
+    "augmented_dir": "augmented",
     "train_persisted": "train.pck",
     "test_persisted": "test.pck",
     "test0_persisted": "test0.pck",
@@ -16,13 +17,15 @@ config = {
     "image_ext": "png",
     "train_file": "train.csv",
     "depth_file": "depth:csv",
-    "augment": True
+    "augment": False
 }
 
 CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
-conv_to_rgb = True
+use_augmented = True
+augment_size = 16000
+conv_to_rgb = False
 resize_image = False
 tta = True
 img_size = 101

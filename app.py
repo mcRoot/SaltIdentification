@@ -17,6 +17,11 @@ def preprocess():
         X_train_mask = util.load_cache(os.path.join(config.CACHE_PATH, config.config['mask_persisted']))
     else:
         X_train, X_train_id, X_train_mask, _, _ = util.load_set(config.config["base_path"], True)
+        if config.use_augmented:
+            X_aug, X_aug_id, X_aug_mask, _, _ = util.load_set(config.config["base_path"], True, True)
+            X_train.extend(X_aug)
+            X_train_id.extend(X_aug_id)
+            X_train_mask.extend(X_aug_mask)
         X_train = util.normalize_set(X_train)
         X_train_mask = util.normalize_set(X_train_mask)
         util.persist(os.path.join(config.CACHE_PATH, config.config['train_persisted']), X_train)
@@ -109,6 +114,10 @@ def build_net():
                                                                labels= tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
     optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
+    aug_ops = []
+    if config.flip:
+        aug_ops.append(tf.image.random_flip_up_down)
+
     return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer")
 
 def train_validation(X_train, X_train_mask, X_train_id):
@@ -175,6 +184,9 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, X_test_0, X_test_1, loss,
 
 
 if __name__ == "__main__":
+    if config.config["augment"]:
+        util.augment(config.config["base_path"], True)
+        exit(0)
     X_train, X_train_id, X_train_mask, X_test, X_test_id, X_test_0, X_test_1 = preprocess()
     X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)

@@ -5,7 +5,8 @@ import os
 import glob
 import dill
 import tensorflow as tf
-from config import config, resize_image, img_size, tta
+import Augmentor
+from config import config, resize_image, img_size, tta, augment_size
 from config import MODEL_FILENAME, CACHE_PATH
 
 
@@ -18,7 +19,25 @@ def get_img_cv2(path, mask=False):
 def img_flip(img):
     return cv2.flip(img, 0), cv2.flip(img, 1)
 
-def load_set(base_path, trainset=True):
+def augment(base_path, trainset=True):
+    setpath = None
+    if trainset:
+        setpath = config["train_dir"]
+    else:
+        setpath = config["test_dir"]
+    base = os.path.join(base_path, setpath, config["image_dir_name"])
+    base_mask = os.path.join(base_path, setpath, config["mask_dir_name"])
+    p = Augmentor.Pipeline(base)
+    p.ground_truth(base_mask)
+    p.crop_random(probability=0.5, percentage_area=0.4)
+    p.flip_left_right(probability=0.5)
+    p.flip_top_bottom(probability=0.5)
+    p.rotate(probability=0.5, max_left_rotation=8, max_right_rotation=8)
+    p.shear(probability=0.2, max_shear_left=5, max_shear_right=5)
+    p.resize(probability=1, width=img_size, height=img_size)
+    p.sample(augment_size, multi_threaded=False)
+
+def load_set(base_path, trainset=True, augmented=False):
     X_train = []
     X_train_id = []
     X_train_mask = []
@@ -30,6 +49,8 @@ def load_set(base_path, trainset=True):
         setpath = config["train_dir"]
     else:
         setpath = config["test_dir"]
+    if augmented:
+        setpath = config["augmented_dir"]
     base = os.path.join(base_path, setpath, config["image_dir_name"])
     base_mask = os.path.join(base_path, setpath, config["mask_dir_name"])
     print("start loading images - basepath: {}, maskpath: {}".format(base, base_mask))
@@ -47,19 +68,19 @@ def load_set(base_path, trainset=True):
                 X_train_flip_0.append(img1.reshape(img_size, img_size, 1))
                 X_train_flip_1.append(img2.reshape(img_size, img_size, 1))
         if trainset:
-            if config["augment"]:
-                img1, img2 =  img_flip(image)
-                X_train.append(img1.reshape(img_size, img_size, 1))
-                X_train_id.append(fname.split(".")[0])
-                X_train.append(img2.reshape(img_size, img_size, 1))
-                X_train_id.append(fname.split(".")[0])
+            #if config["augment"]:
+            #    img1, img2 =  img_flip(image)
+            #    X_train.append(img1.reshape(img_size, img_size, 1))
+            #    X_train_id.append(fname.split(".")[0])
+            #    X_train.append(img2.reshape(img_size, img_size, 1))
+            #    X_train_id.append(fname.split(".")[0])
             maskfname = os.path.join(base_mask, fname)
             image = get_img_cv2(maskfname, mask=True)
             X_train_mask.append(image.reshape(101, 101, 1))
-            if config["augment"]:
-                img1, img2 =  img_flip(image)
-                X_train_mask.append(img1.reshape(101, 101, 1))
-                X_train_mask.append(img2.reshape(101, 101, 1))
+            #if config["augment"]:
+            #    img1, img2 =  img_flip(image)
+            #    X_train_mask.append(img1.reshape(101, 101, 1))
+            #    X_train_mask.append(img2.reshape(101, 101, 1))
 
     print("Load images complete - total time {0:.2f} sec".format((time.time() - start_time)))
     return X_train, X_train_id, X_train_mask, X_train_flip_0, X_train_flip_1
