@@ -43,6 +43,8 @@ def preprocess():
 def build_net():
     initializer = tf.contrib.layers.xavier_initializer(uniform=False,dtype=tf.float32)
     x = tf.placeholder(tf.float32, shape=[None, config.img_size, config.img_size, config.n_channels], name="x")
+    if config.conv_to_rgb:
+        x = tf.image.grayscale_to_rgb(x)
     y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
     p = tf.layers.conv2d(x, 32, config.kernel_size, kernel_initializer=initializer, padding="same",
@@ -203,30 +205,36 @@ if __name__ == "__main__":
         y_pred, y_pred_0, y_pred_1 = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, X_test_0, X_test_1, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]
     for th in config.thresholds:
-        y_pred_def = y_pred#(y_pred > th) * 1
-        y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
-        y_pred_def.shape[0] == 18000
-        print("pred {}".format(y_pred_def[:100]))
+        if config.tta:
+            y_pred_def = y_pred#(y_pred > th) * 1
+            y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
+            y_pred_def.shape[0] == 18000
+            print("pred {}".format(y_pred_def[:100]))
 
-        y_pred_def_0 = y_pred_0#(y_pred_0 > th) * 1
-        y_pred_def_0 = [cv2.flip(r, 0) for r in y_pred_def_0]
-        len(y_pred_def_0) == 18000
-        y_pred_def_0 = np.array(y_pred_def_0)
-        y_pred_def_0 = y_pred_def_0.reshape((-1, config.img_size * config.img_size), order="F")
-        y_pred_def_0.shape[0] == 18000
-        print("pred 0 {}".format(y_pred_def_0[:100]))
+            y_pred_def_0 = y_pred_0#(y_pred_0 > th) * 1
+            y_pred_def_0 = [cv2.flip(r, 0) for r in y_pred_def_0]
+            len(y_pred_def_0) == 18000
+            y_pred_def_0 = np.array(y_pred_def_0)
+            y_pred_def_0 = y_pred_def_0.reshape((-1, config.img_size * config.img_size), order="F")
+            y_pred_def_0.shape[0] == 18000
+            print("pred 0 {}".format(y_pred_def_0[:100]))
 
-        y_pred_def_1 = y_pred_1#(y_pred_1 > th) * 1
-        y_pred_def_1 = [cv2.flip(r, 1) for r in y_pred_def_1]
-        len(y_pred_def_1) == 18000
-        y_pred_def_1 = np.array(y_pred_def_1)
-        y_pred_def_1 = y_pred_def_1.reshape((-1, config.img_size * config.img_size), order="F")
-        y_pred_def_1.shape[0] == 18000
-        print("pred 1 {}".format(y_pred_def_1[:100]))
+            y_pred_def_1 = y_pred_1#(y_pred_1 > th) * 1
+            y_pred_def_1 = [cv2.flip(r, 1) for r in y_pred_def_1]
+            len(y_pred_def_1) == 18000
+            y_pred_def_1 = np.array(y_pred_def_1)
+            y_pred_def_1 = y_pred_def_1.reshape((-1, config.img_size * config.img_size), order="F")
+            y_pred_def_1.shape[0] == 18000
+            print("pred 1 {}".format(y_pred_def_1[:100]))
 
 
-        y_pred_def = (y_pred_def + y_pred_def_0 + y_pred_def_1) / 3.0
-        print("pred def {}".format(y_pred_def[:100]))
+            y_pred_def = (y_pred_def + y_pred_def_0 + y_pred_def_1) / 3.0
+            print("pred def {}".format(y_pred_def[:100]))
+        else:
+            y_pred_def = y_pred
+            y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
+            y_pred_def.shape[0] == 18000
+
         y_pred_def = (y_pred_def > th) * 1
 
         to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}

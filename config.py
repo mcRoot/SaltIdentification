@@ -22,6 +22,7 @@ config = {
 CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
+conv_to_rgb = True
 resize_image = False
 tta = True
 img_size = 101
