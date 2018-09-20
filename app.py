@@ -179,7 +179,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
 
 
 if __name__ == "__main__":
-    X_train, X_train_id, X_train_mask, X_test, X_test_id, X_test_0, X_test_1 = preprocess()
+    X_train, X_train_id, X_train_mask, X_test, X_test_id = preprocess()
     X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)
     loss, optimizer, out = build_net()
@@ -206,7 +206,7 @@ if __name__ == "__main__":
             y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
     else:
-        y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, X_test_0, X_test_1, loss, optimizer, out, sess)
+        y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]
     for th in config.thresholds:
         y_pred_def = y_pred
