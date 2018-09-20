@@ -17,14 +17,13 @@ config = {
     "image_ext": "png",
     "train_file": "train.csv",
     "depth_file": "depth:csv",
-    "augment": False
+    "augment": True,
+    "persist": False
 }
 
 CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
-use_augmented = True
-augment_size = 16000
 conv_to_rgb = False
 resize_image = False
 tta = True

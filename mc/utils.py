@@ -1,4 +1,5 @@
 import cv2
+import imutils
 import numpy as np
 import time
 import os
@@ -6,36 +7,79 @@ import glob
 import dill
 import tensorflow as tf
 import Augmentor
-from config import config, resize_image, img_size, tta, augment_size
+from config import config, resize_image, img_size, tta
 from config import MODEL_FILENAME, CACHE_PATH
 
+
+def tta_augment(X):
+    res = []
+    res_flip_0 = []
+    res_flip_1 = []
+    res_rot_90 = []
+    res_rot_180 = []
+    res_rot_270 = []
+    for img in X:
+        res_flip_0.append(flip(img, 0).reshape(img_size, img_size, 1))
+        res_flip_1.append(flip(img, 1).reshape(img_size, img_size, 1))
+        res_rot_90.append(imutils.rotate_bound(img, angle=90).reshape(img_size, img_size, 1))
+        res_rot_180.append(imutils.rotate_bound(img, angle=180).reshape(img_size, img_size, 1))
+        res_rot_270.append(imutils.rotate_bound(img, angle=270).reshape(img_size, img_size, 1))
+    res.append(np.array(res_flip_0))
+    res.append(np.array(res_flip_1))
+    res.append(np.array(res_rot_90))
+    res.append(np.array(res_rot_180))
+    res.append(np.array(res_rot_270))
+    return res
+
+def augment(X, mask, X_id):
+    res_X = []
+    res_mask = []
+    res_id = []
+    for i, img in enumerate(X):
+        res_X.append(flip(img, 0).reshape(img_size, img_size, 1))
+        res_X.append(flip(img, 1).reshape(img_size, img_size, 1))
+        res_id.extend([X_id[i], X_id[i]])
+        rot, rot_id = rotate(img, X_id[i])
+        res_X.extend(rot)
+        res_id.extend(rot_id)
+        rot, rot_id = translate(img, X_id[i])
+        res_X.extend(rot)
+        res_id.extend(rot_id)
+        res_mask.append(flip(mask[i], 0).reshape(img_size, img_size, 1))
+        res_mask.append(flip(mask[i], 1).reshape(img_size, img_size, 1))
+        res_mask.extend(rotate(mask[i], X_id[i])[0])
+        res_mask.extend(translate(mask[i], X_id[i])[0])
+    return res_X, res_mask, res_id
+
+def rotate(img, img_id):
+    res = []
+    res_id = []
+    for a in xrange(0, 350, 90):
+        res.append(imutils.rotate_bound(img, a).reshape(img_size, img_size, 1))
+        res_id.append(img_id)
+    return res, res_id
+
+def translate(img, img_id):
+    res = []
+    res_id = []
+    res.append(imutils.translate(img, img_size // 2, 0).reshape(img_size, img_size, 1))
+    res_id.append(img_id)
+    res.append(imutils.translate(img, - (img_size // 2), 0).reshape(img_size, img_size, 1))
+    res_id.append(img_id)
+    res.append(imutils.translate(img, 0, img_size // 2).reshape(img_size, img_size, 1))
+    res_id.append(img_id)
+    res.append(imutils.translate(img, 0, - (img_size // 2)).reshape(img_size, img_size, 1))
+    res_id.append(img_id)
+    return res, res_id
+
+def flip(img, kind):
+    return cv2.flip(img, kind)
 
 def get_img_cv2(path, mask=False):
     img = cv2.imread(path, 0)
     if not mask and resize_image:
         img = cv2.resize(img, (img_size, img_size))
     return img
-
-def img_flip(img):
-    return cv2.flip(img, 0), cv2.flip(img, 1)
-
-def augment(base_path, trainset=True):
-    setpath = None
-    if trainset:
-        setpath = config["train_dir"]
-    else:
-        setpath = config["test_dir"]
-    base = os.path.join(base_path, setpath, config["image_dir_name"])
-    base_mask = os.path.join(base_path, setpath, config["mask_dir_name"])
-    p = Augmentor.Pipeline(base)
-    p.ground_truth(base_mask)
-    p.crop_random(probability=0.5, percentage_area=0.4)
-    p.flip_left_right(probability=0.5)
-    p.flip_top_bottom(probability=0.5)
-    p.rotate(probability=0.5, max_left_rotation=8, max_right_rotation=8)
-    p.shear(probability=0.2, max_shear_left=5, max_shear_right=5)
-    p.resize(probability=1, width=img_size, height=img_size)
-    p.sample(augment_size, multi_threaded=False)
 
 def load_set(base_path, trainset=True, augmented=False):
     X_train = []
@@ -64,7 +108,8 @@ def load_set(base_path, trainset=True, augmented=False):
         X_train_id.append(fname.split(".png")[0])
         if not trainset:
             if tta:
-                img1, img2 = img_flip(image)
+                img1 = flip(image, 0)
+                img2 = flip(image, 1)
                 X_train_flip_0.append(img1.reshape(img_size, img_size, 1))
                 X_train_flip_1.append(img2.reshape(img_size, img_size, 1))
         if trainset:

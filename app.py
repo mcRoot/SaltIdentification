@@ -17,33 +17,28 @@ def preprocess():
         X_train_mask = util.load_cache(os.path.join(config.CACHE_PATH, config.config['mask_persisted']))
     else:
         X_train, X_train_id, X_train_mask, _, _ = util.load_set(config.config["base_path"], True)
-        if config.use_augmented:
-            X_aug, X_aug_id, X_aug_mask, _, _ = util.load_set(config.config["base_path"], True, True)
+        if config.config["augment"]:
+            X_aug, X_aug_mask, X_aug_id = util.augment(X_train, X_train_mask, X_train_id)
             X_train.extend(X_aug)
             X_train_id.extend(X_aug_id)
             X_train_mask.extend(X_aug_mask)
         X_train = util.normalize_set(X_train)
         X_train_mask = util.normalize_set(X_train_mask)
-        util.persist(os.path.join(config.CACHE_PATH, config.config['train_persisted']), X_train)
-        util.persist(os.path.join(config.CACHE_PATH, config.config['train_id_persisted']), X_train_id)
-        util.persist(os.path.join(config.CACHE_PATH, config.config['mask_persisted']), X_train_mask)
+        if config.config["persist"]:
+            util.persist(os.path.join(config.CACHE_PATH, config.config['train_persisted']), X_train)
+            util.persist(os.path.join(config.CACHE_PATH, config.config['train_id_persisted']), X_train_id)
+            util.persist(os.path.join(config.CACHE_PATH, config.config['mask_persisted']), X_train_mask)
 
     preprocessed_file = os.path.join(config.CACHE_PATH, config.config['test_persisted'])
     if os.path.isfile(preprocessed_file):
         X_test = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test_persisted']))
-        X_test_0 = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test0_persisted']))
-        X_test_1 = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test1_persisted']))
         X_test_id = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']))
     else:
-        X_test, X_test_id, _, X_test_0, X_test_1 = util.load_set(config.config["base_path"], False)
+        X_test, X_test_id, _, = util.load_set(config.config["base_path"], False)
         X_test = util.normalize_set(X_test)
-        X_test_0 = util.normalize_set(X_test_0)
-        X_test_1 = util.normalize_set(X_test_1)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
-        util.persist(os.path.join(config.CACHE_PATH, config.config['test0_persisted']), X_test_0)
-        util.persist(os.path.join(config.CACHE_PATH, config.config['test1_persisted']), X_test_1)
-    return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object), X_test_0, X_test_1
+    return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object)
 
 def build_net():
     initializer = tf.contrib.layers.xavier_initializer(uniform=False,dtype=tf.float32)
@@ -132,7 +127,7 @@ def choose_batch(X, mask, id, rnd):
     #print("batch {}".format(i))
     return np.copy(X[i, :, :, :]), np.copy(mask[i, :, :, :]), np.copy(id[i])
 
-def train_net(X, mask, id_tr, X_val, mask_val, X_test, X_test_0, X_test_1, loss, optimizer, out, sess):
+def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, sess):
     print("Training...")
     rnd = np.random.RandomState(seed=1977)
     util.reset_vars(sess)
@@ -152,38 +147,38 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, X_test_0, X_test_1, loss,
     print("Total time {} sec".format(time.time() - start_t))
     util.save_tf_model(sess)
     print("Devising testset results...")
-    y_pred = np.empty((0, config.img_size, config.img_size, 1))
-    y_pred_0 = np.empty((0, config.img_size, config.img_size, 1))
-    y_pred_1 = np.empty((0, config.img_size, config.img_size, 1))
-
+    y_pred = np.empty((0, config.img_size *  config.img_size))
+    X_test_aug = []
+    if config.tta:
+        X_test_aug = util.tta_augment(X_test)
     for j in range(int(X_test.shape[0] / config.pred_step)):
         print("[{}] predicting...".format((j + 1)))
         y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-        y_pred = np.append(y_pred, y1, axis=0)
-        y1 = sess.run(out, feed_dict={"x:0": X_test_0[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-        y_pred_0 = np.append(y_pred_0, y1, axis=0)
-        y1 = sess.run(out, feed_dict={"x:0": X_test_1[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
-                                      "training:0": False, "bth_size:0": config.pred_step})
-        y_pred_1 = np.append(y_pred_1, y1, axis=0)
+        y_aug = []
+        y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
+        for aug in X_test_aug:
+            y_aug.append(sess.run(out, feed_dict={"x:0": aug[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step}).reshape((-1, config.img_size * config.img_size), order="F"))
+        y_aug = np.array(y_aug)
+        y_mean = y_aug.mean(axis=0)
+        y_pred = np.append(y_pred, y_mean, axis=0)
 
     if (j + 1) * config.pred_step < X_test.shape[0]:
         print("[{}] predicting...".format((j + 1)))
         y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-        y_pred = np.append(y_pred, y1, axis=0)
-        y1 = sess.run(out, feed_dict={"x:0": X_test_0[(j + 1) * config.pred_step:, :, :, :], "training:0": False,
-                                      "bth_size:0": config.pred_step})
-        y_pred_0 = np.append(y_pred_0, y1, axis=0)
-        y1 = sess.run(out, feed_dict={"x:0": X_test_1[(j + 1) * config.pred_step:, :, :, :], "training:0": False,
-                                      "bth_size:0": config.pred_step})
-        y_pred_1 = np.append(y_pred_1, y1, axis=0)
-    return y_pred, y_pred_0, y_pred_1
+        y_aug = []
+        y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
+        for aug in X_test_aug:
+            y_aug.append(sess.run(out, feed_dict={"x:0": aug[(j + 1) * config.pred_step:, :, :, :],
+                                                  "training:0": False, "bth_size:0": config.pred_step}).reshape(
+                (-1, config.img_size * config.img_size), order="F"))
+        y_aug = np.array(y_aug)
+        y_mean = y_aug.mean(axis=0)
+        y_pred = np.append(y_pred, y_mean, axis=0)
+    return y_pred
 
 
 
 if __name__ == "__main__":
-    if config.config["augment"]:
-        util.augment(config.config["base_path"], True)
-        exit(0)
     X_train, X_train_id, X_train_mask, X_test, X_test_id, X_test_0, X_test_1 = preprocess()
     X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)
@@ -211,38 +206,11 @@ if __name__ == "__main__":
             y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
     else:
-        y_pred, y_pred_0, y_pred_1 = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, X_test_0, X_test_1, loss, optimizer, out, sess)
+        y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, X_test_0, X_test_1, loss, optimizer, out, sess)
     no_test = y_pred.shape[0]
     for th in config.thresholds:
-        if config.tta:
-            y_pred_def = y_pred#(y_pred > th) * 1
-            y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
-            y_pred_def.shape[0] == 18000
-            print("pred {}".format(y_pred_def[:100]))
-
-            y_pred_def_0 = y_pred_0#(y_pred_0 > th) * 1
-            y_pred_def_0 = [cv2.flip(r, 0) for r in y_pred_def_0]
-            len(y_pred_def_0) == 18000
-            y_pred_def_0 = np.array(y_pred_def_0)
-            y_pred_def_0 = y_pred_def_0.reshape((-1, config.img_size * config.img_size), order="F")
-            y_pred_def_0.shape[0] == 18000
-            print("pred 0 {}".format(y_pred_def_0[:100]))
-
-            y_pred_def_1 = y_pred_1#(y_pred_1 > th) * 1
-            y_pred_def_1 = [cv2.flip(r, 1) for r in y_pred_def_1]
-            len(y_pred_def_1) == 18000
-            y_pred_def_1 = np.array(y_pred_def_1)
-            y_pred_def_1 = y_pred_def_1.reshape((-1, config.img_size * config.img_size), order="F")
-            y_pred_def_1.shape[0] == 18000
-            print("pred 1 {}".format(y_pred_def_1[:100]))
-
-
-            y_pred_def = (y_pred_def + y_pred_def_0 + y_pred_def_1) / 3.0
-            print("pred def {}".format(y_pred_def[:100]))
-        else:
-            y_pred_def = y_pred
-            y_pred_def = y_pred_def.reshape((-1, config.img_size * config.img_size), order="F")
-            y_pred_def.shape[0] == 18000
+        y_pred_def = y_pred
+        y_pred_def.shape[0] == 18000
 
         y_pred_def = (y_pred_def > th) * 1
 
@@ -252,14 +220,6 @@ if __name__ == "__main__":
         sub.index.names = ['id']
         sub.columns = ['rle_mask']
         sub.to_csv(os.path.join(config.CACHE_PATH, "submit-{}.csv".format(th)))
-    #z = y_pred[20].reshape(config.img_size, config.img_size)
-    #img = ((y_pred[20] > 0.5) * 1.0).reshape(config.img_size, config.img_size)
-    #f = plt.figure(figsize=(8, 6))
-    #plt.imshow(img)
-    #f.savefig("pred1.png")
-    #f = plt.figure(figsize=(8, 6))
-    #plt.imshow(X_mask_validation[20].reshape(config.img_size, config.img_size))
-    #f.savefig("mask1.png")
 
     print("Done")
 
