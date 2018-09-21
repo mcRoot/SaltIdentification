@@ -12,7 +12,7 @@ from config import MODEL_FILENAME, CACHE_PATH
 
 
 def tta_augment(X):
-    res = []
+    res = {}
     res_flip_0 = []
     res_flip_1 = []
     res_rot_90 = []
@@ -24,12 +24,33 @@ def tta_augment(X):
         res_rot_90.append(imutils.rotate_bound(img, angle=90).reshape(img_size, img_size, 1))
         res_rot_180.append(imutils.rotate_bound(img, angle=180).reshape(img_size, img_size, 1))
         res_rot_270.append(imutils.rotate_bound(img, angle=270).reshape(img_size, img_size, 1))
-    res.append(np.array(res_flip_0))
-    res.append(np.array(res_flip_1))
-    res.append(np.array(res_rot_90))
-    res.append(np.array(res_rot_180))
-    res.append(np.array(res_rot_270))
+    res["flip_0"] = np.array(res_flip_0)
+    res["flip_1"] = np.array(res_flip_1)
+    res["rot_90"] = np.array(res_rot_90)
+    res["rot_180"] = np.array(res_rot_180)
+    res["rot_270"] = np.array(res_rot_270)
     return res
+
+
+def transformations(img, trans):
+    f = None
+    if trans == "flip_0":
+        f = lambda img: cv2.flip(img, 0)
+    if trans == "flip_1":
+        f = lambda img: cv2.flip(img, 1)
+    if trans == "rot_90":
+        f = lambda img: imutils.rotate_bound(img, -90)
+    if trans == "rot_180":
+        f = lambda img: imutils.rotate_bound(img, 180)
+    if trans == "rot_270":
+        f = lambda img: imutils.rotate_bound(img, 90)
+    return f
+
+def deaugment(X, trans):
+    res = []
+    for img in X:
+        res.append(transformations(img, trans)(img).reshape(img_size, img_size, 1))
+    return np.array(res)
 
 def augment(X, mask, X_id):
     res_X = []

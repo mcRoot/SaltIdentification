@@ -38,7 +38,7 @@ def preprocess():
         X_test = util.normalize_set(X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
-    return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object)
+    return X_train, np.array(X_train_id), X_train_mask, X_test[:10,:,:,:], np.array(X_test_id[:10], dtype=np.object)
 
 def build_net():
     initializer = tf.contrib.layers.xavier_initializer(uniform=False,dtype=tf.float32)
@@ -156,8 +156,11 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
         y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
         y_aug = []
         y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
-        for aug in X_test_aug:
-            y_aug.append(sess.run(out, feed_dict={"x:0": aug[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step}).reshape((-1, config.img_size * config.img_size), order="F"))
+        for trans, aug in X_test_aug.items():
+            y_tmp = sess.run(out, feed_dict={"x:0": aug[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
+                                     "training:0": False, "bth_size:0": config.pred_step})
+            y_tmp = util.deaugment(y_tmp, trans)
+            y_aug.append(y_tmp.reshape((-1, config.img_size * config.img_size), order="F"))
         y_aug = np.array(y_aug)
         y_mean = y_aug.mean(axis=0)
         y_pred = np.append(y_pred, y_mean, axis=0)
@@ -210,12 +213,12 @@ if __name__ == "__main__":
     no_test = y_pred.shape[0]
     for th in config.thresholds:
         y_pred_def = y_pred
-        y_pred_def.shape[0] == 18000
+        #y_pred_def.shape[0] == 18000
 
         y_pred_def = (y_pred_def > th) * 1
 
         to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
-        assert X_test_id.shape[0] == 18000
+        #assert X_test_id.shape[0] == 18000
         sub = pd.DataFrame.from_dict(to_submit, orient='index')
         sub.index.names = ['id']
         sub.columns = ['rle_mask']
