@@ -38,7 +38,7 @@ def preprocess():
         X_test = util.normalize_set(X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
-    return X_train, np.array(X_train_id), X_train_mask, X_test[:10,:,:,:], np.array(X_test_id[:10], dtype=np.object)
+    return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object)
 
 def build_net():
     initializer = tf.contrib.layers.xavier_initializer(uniform=False,dtype=tf.float32)
