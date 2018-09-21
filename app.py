@@ -34,7 +34,7 @@ def preprocess():
         X_test = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test_persisted']))
         X_test_id = util.load_cache(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']))
     else:
-        X_test, X_test_id, _, _ = util.load_set(config.config["base_path"], False)
+        X_test, X_test_id, _, _, _ = util.load_set(config.config["base_path"], False)
         X_test = util.normalize_set(X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
         util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
