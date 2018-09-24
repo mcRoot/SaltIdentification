@@ -144,7 +144,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
     cost_batch = []
     cost_val = []
     ious = None
-    df_empty = pd.DataFrame({th: [] for th in [0.5, 0.7, 0.6, 0.9]})
+    df_empty = pd.DataFrame({th: [] for th in config.thresholds})
     df_empty['epoch'] = []
 
     for i in range(config.epochs):
