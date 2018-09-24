@@ -154,7 +154,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
             if(ii % config.display_steps == 0):
                 cost = sess.run(loss, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": config.batch_size})
                 cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
-                out_val = sess.run(loss, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                out_val = sess.run(out, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
                 def_res = util.devise_complete_iou_results(out_val, mask_val, config.thresholds, config.kaggle_thresholds)
