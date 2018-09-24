@@ -170,6 +170,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
                 cost_batch.append(cost)
                 cost_val.append(cost_test)
             ii += 1
+        print("Total batches {}".format(ii))
     cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch, "cost_val": cost_val})
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
@@ -243,7 +244,7 @@ if __name__ == "__main__":
         y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
         df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
         cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
-        th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1)
+        th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
         print("Max threshold {}".format(th_max))
     no_test = y_pred.shape[0]
     y_pred_def = y_pred
