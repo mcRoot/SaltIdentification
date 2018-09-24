@@ -127,19 +127,47 @@ def choose_batch(X, mask, id, rnd):
     #print("batch {}".format(i))
     return np.copy(X[i, :, :, :]), np.copy(mask[i, :, :, :]), np.copy(id[i])
 
+def get_next_batch(X, mask, id):
+    start_index = 0
+    end_index = len(X)
+    while start_index <= end_index:
+        yield np.copy(X[start_index:start_index+config.batch_size, :, :, :]), np.copy(mask[start_index:start_index+config.batch_size, :, :, :]), np.copy(id[start_index:start_index+config.batch_size])
+        start_index += config.batch_size
+
 def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, sess):
     print("Training...")
     rnd = np.random.RandomState(seed=1977)
     util.reset_vars(sess)
     start_t = time.time()
+    step = []
+    cost_batch = []
+    cost_val = []
+    ious = None
+    df_empty = pd.DataFrame({th: [] for th in [0.5, 0.7, 0.6, 0.9]})
+    df_empty['epoch'] = []
+
     for i in range(config.epochs):
-        batch, mask_batch, id_batch = choose_batch(X, mask, id_tr, rnd)
-        sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
-        if(i % config.display_steps == 0):
-            cost = sess.run(loss, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": config.batch_size})
-            cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
-            print("Iteration {}".format(i))
-            print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
+        print("Epoch {}".format(i))
+        for ii, batch, mask_batch, id_batch in enumerate(get_next_batch(X, mask, id_tr)):
+            sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
+            if(ii % config.display_steps == 0):
+                cost = sess.run(loss, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": config.batch_size})
+                cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                out_val = sess.run(loss, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
+                mask_val = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
+                def_res = util.devise_complete_iou_results(out_val, mask_val, config.thresholds, config.kaggle_thresholds)
+                df_calc = pd.DataFrame(def_res)
+                df_calc['epoch'] = (ii * (i + 1))
+                df_empty = df_empty.append(df_calc)
+
+                print("Epoch {} Iteration {}".format(i, ii))
+                print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
+                print("IoUs {}".format(def_res))
+                step.append(ii * (i + 1))
+                cost_batch.append(cost)
+                cost_val.append(cost_test)
+    cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch, "cost_val": cost_val})
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
     print("Iteration {}".format(i))
@@ -177,7 +205,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
         y_aug = np.array(y_aug)
         y_mean = y_aug.mean(axis=0)
         y_pred = np.append(y_pred, y_mean, axis=0)
-    return y_pred
+    return y_pred, df_empty, cost_df
 
 
 
@@ -209,7 +237,9 @@ if __name__ == "__main__":
             y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
     else:
-        y_pred = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
+        y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
+        df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
+        cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
     no_test = y_pred.shape[0]
     for th in config.thresholds:
         y_pred_def = y_pred
@@ -227,64 +257,3 @@ if __name__ == "__main__":
     print("Done")
 
 
-def iou_metric(y_true_in, y_pred_in, print_table=False):
-    labels = y_true_in
-    y_pred = y_pred_in
-
-    true_objects = 2
-    pred_objects = 2
-
-    intersection = np.histogram2d(labels.flatten(), y_pred.flatten(), bins=(true_objects, pred_objects))[0]
-
-    # Compute areas (needed for finding the union between all objects)
-    area_true = np.histogram(labels, bins=true_objects)[0]
-    area_pred = np.histogram(y_pred, bins=pred_objects)[0]
-    area_true = np.expand_dims(area_true, -1)
-    area_pred = np.expand_dims(area_pred, 0)
-
-    # Compute union
-    union = area_true + area_pred - intersection
-
-    # Exclude background from the analysis
-    intersection = intersection[1:, 1:]
-    union = union[1:, 1:]
-    union[union == 0] = 1e-9
-
-    # Compute the intersection over union
-    iou = intersection / union
-
-    # Precision helper function
-    def precision_at(threshold, iou):
-        matches = iou > threshold
-        true_positives = np.sum(matches, axis=1) == 1  # Correct objects
-        false_positives = np.sum(matches, axis=0) == 0  # Missed objects
-        false_negatives = np.sum(matches, axis=1) == 0  # Extra objects
-        tp, fp, fn = np.sum(true_positives), np.sum(false_positives), np.sum(false_negatives)
-        return tp, fp, fn
-
-    # Loop over IoU thresholds
-    prec = []
-    if print_table:
-        print("Thresh\tTP\tFP\tFN\tPrec.")
-    for t in np.arange(0.5, 1.0, 0.05):
-        tp, fp, fn = precision_at(t, iou)
-        if (tp + fp + fn) > 0:
-            p = tp / (tp + fp + fn)
-        else:
-            p = 0
-        if print_table:
-            print("{:1.3f}\t{}\t{}\t{}\t{:1.3f}".format(t, tp, fp, fn, p))
-        prec.append(p)
-
-    if print_table:
-        print("AP\t-\t-\t-\t{:1.3f}".format(np.mean(prec)))
-    return np.mean(prec)
-
-
-def iou_metric_batch(y_true_in, y_pred_in):
-    batch_size = y_true_in.shape[0]
-    metric = []
-    for batch in range(batch_size):
-        value = iou_metric(y_true_in[batch], y_pred_in[batch])
-        metric.append(value)
-    return np.mean(metric)

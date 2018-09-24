@@ -10,6 +10,46 @@ import Augmentor
 from config import config, resize_image, img_size, tta
 from config import MODEL_FILENAME, CACHE_PATH
 
+def metric_iou(pred, mask):
+    both = pred + mask
+    union = (both >= 1).sum()
+    intr = (both == 2).sum()
+    IoU = intr / float(union)
+    return IoU
+
+def calc_IoUs(pred, mask):
+    ious = []
+    for i, p in enumerate(pred):
+        ious.append(metric_iou(p, mask[i]))
+    return np.array(ious)
+
+def full_IoU_metric(pred, mask, th=[]):
+    ious_mask = {}
+    for t in th:
+        pred_def = (pred > t) * 1
+        ious = calc_IoUs(pred_def, mask)
+        ious_mask[t] = ious
+    return ious_mask
+
+def kaggle_iou_metric(complete_pred, masks, kaggle_th):
+    positives = (masks.sum(axis=1) > 0) * 1.0
+    res = {}
+    for k in complete_pred:
+        curr = complete_pred[k]
+        prec = []
+        for kt in kaggle_th:
+            pred_pos = (curr > kt) * 1.0
+            tp = ((pred_pos * positives) > 0).sum()
+            fp = ((pred_pos - positives) > 0).sum()
+            fn = ((pred_pos - positives) < 0).sum()
+            p = float(tp) / (tp + fn + fp)
+            prec.append(p)
+        res[k] = [np.array(prec).mean()]
+    return res
+
+def devise_complete_iou_results(pred, mask, image_th=[], kaggle_th=[]):
+    res = full_IoU_metric(pred, mask, image_th)
+    return kaggle_iou_metric(res, mask, kaggle_th)
 
 def tta_augment(X):
     res = {}

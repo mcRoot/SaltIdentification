@@ -39,6 +39,7 @@ learning_rate = 0.001
 validation_perc = 0.06
 #dropout_rate = 0.2
 
-thresholds = [0.7]
+thresholds = [0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+kaggle_thresholds = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
 
 pred_step = 2000
