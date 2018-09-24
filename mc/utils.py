@@ -45,11 +45,15 @@ def kaggle_iou_metric(complete_pred, masks, kaggle_th):
             tp = ((pred_pos * positives) > 0) * 1.0
             fp = ((pred_pos - positives) > 0) * 1.0
             fn = ((pred_pos - positives) < 0) * 1.0
+            tn = ((pred_pos == 0) & (positives==0)) * 1.0
             tot.append(tp)
             tot.append(fp)
             tot.append(fn)
+            tot.append(tn)
             tmp = np.array(tot)
             r = tmp[0] / (tmp[0] + tmp[1] + tmp[2])
+            r[np.isnan(r)] = 0
+            r += tmp[3]
             prec.append(r)
         prec = np.array(prec).mean(axis=0)
         res[k] = [prec.mean()]
