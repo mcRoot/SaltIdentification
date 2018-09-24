@@ -14,7 +14,9 @@ def metric_iou(pred, mask):
     both = pred + mask
     union = (both >= 1).sum()
     intr = (both == 2).sum()
-    IoU = intr / float(union)
+    IoU = 0
+    if union > 0:
+        IoU = intr / float(union)
     return IoU
 
 def calc_IoUs(pred, mask):
@@ -38,13 +40,19 @@ def kaggle_iou_metric(complete_pred, masks, kaggle_th):
         curr = complete_pred[k]
         prec = []
         for kt in kaggle_th:
+            tot = []
             pred_pos = (curr > kt) * 1.0
-            tp = ((pred_pos * positives) > 0).sum()
-            fp = ((pred_pos - positives) > 0).sum()
-            fn = ((pred_pos - positives) < 0).sum()
-            p = float(tp) / (tp + fn + fp)
-            prec.append(p)
-        res[k] = [np.array(prec).mean()]
+            tp = ((pred_pos * positives) > 0) * 1.0
+            fp = ((pred_pos - positives) > 0) * 1.0
+            fn = ((pred_pos - positives) < 0) * 1.0
+            tot.append(tp)
+            tot.append(fp)
+            tot.append(fn)
+            tmp = np.array(tot)
+            r = tmp[0] / (tmp[0] + tmp[1] + tmp[2])
+            prec.append(r)
+        prec = np.array(prec).mean(axis=0)
+        res[k] = [prec.mean()]
     return res
 
 def devise_complete_iou_results(pred, mask, image_th=[], kaggle_th=[]):
