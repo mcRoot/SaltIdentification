@@ -148,7 +148,8 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
 
     for i in range(config.epochs):
         print("Epoch {}".format(i))
-        for ii, batch, mask_batch, id_batch in enumerate(get_next_batch(X, mask, id_tr)):
+        ii = 0
+        for batch, mask_batch, id_batch in get_next_batch(X, mask, id_tr):
             sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": config.batch_size})
             if(ii % config.display_steps == 0):
                 cost = sess.run(loss, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": config.batch_size})
@@ -167,6 +168,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
                 step.append(ii * (i + 1))
                 cost_batch.append(cost)
                 cost_val.append(cost_test)
+            ii += 1
     cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch, "cost_val": cost_val})
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
