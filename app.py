@@ -158,7 +158,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
     optimizer_fn = optimizer
     for i in range(config.epochs):
         print("Epoch {}".format(i))
-        if (i + 1) <= config.lovasz_epochs:
+        if (config.epochs - (i + 1)) <= config.lovasz_epochs:
             loss_fn = lovasz
             optimizer_fn = lovasz_opt
         ii = 0
