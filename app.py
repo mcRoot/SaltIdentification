@@ -109,14 +109,13 @@ def build_net():
     if config.use_lovasz_loss:
         lovasz = losses.lovasz_hinge_flat(logits=tf.reshape(out_layer, shape=(1, -1)),
                                                                labels= tf.reshape(y, shape=(1, -1)))
-        lovasz_optimize = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(lovasz)
+        lovasz_optimize = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(tf.reduce_mean(lovasz))
     else:
         lovasz = None
         lovasz_optimize = None
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
-
     optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
 
     return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer"), lovasz, lovasz_optimize
@@ -230,7 +229,7 @@ if __name__ == "__main__":
     X_train, X_train_id, X_train_mask, X_test, X_test_id = preprocess()
     X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)
-    loss, optimizer, out, lovasz_opt, lovasz = build_net()
+    loss, optimizer, out, lovasz, lovasz_opt = build_net()
     if os.path.isfile(os.path.join(config.CACHE_PATH, "{}.meta".format(config.MODEL_FILENAME))):
         print("Restoring model...")
         sess = tf.Session()
