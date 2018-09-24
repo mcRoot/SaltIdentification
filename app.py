@@ -107,8 +107,8 @@ def build_net():
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
     if config.use_lovasz_loss:
-        lovasz = losses.lovasz_hinge_flat(logits=tf.reshape(out_layer, shape=(-1, 1)),
-                                                               labels= tf.reshape(y, shape=(-1, 1)))
+        lovasz = losses.lovasz_hinge_flat(logits=tf.reshape(out_layer, shape=(1, -1)),
+                                                               labels= tf.reshape(y, shape=(1, -1)))
         loss= tf.reduce_mean(lovasz)
     else:
         cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
