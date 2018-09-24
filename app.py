@@ -3,6 +3,7 @@ import config as config
 import time
 import os
 import numpy as np
+import mc.losses as losses
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -105,9 +106,15 @@ def build_net():
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
-    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
+    if config.use_lovasz_loss:
+        lovasz = losses.lovasz_hinge_flat(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
-    loss = tf.reduce_mean(cross_entropy)
+        loss= tf.reduce_mean(lovasz)
+    else:
+        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
+                                                               labels= tf.reshape(y, shape=(-1, 1)))
+        loss = tf.reduce_mean(cross_entropy)
+
     optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
 
     return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer")

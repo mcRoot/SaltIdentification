@@ -24,6 +24,7 @@ config = {
 CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
+use_lovasz_loss = True
 conv_to_rgb = False
 resize_image = False
 tta = True
