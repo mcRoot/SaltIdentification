@@ -109,15 +109,17 @@ def build_net():
     if config.use_lovasz_loss:
         lovasz = losses.lovasz_hinge_flat(logits=tf.reshape(out_layer, shape=(1, -1)),
                                                                labels= tf.reshape(y, shape=(1, -1)))
-        loss= tf.reduce_mean(lovasz)
+        lovasz_optimize = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(lovasz)
     else:
-        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
+        lovasz = None
+        lovasz_optimize = None
+    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
-        loss = tf.reduce_mean(cross_entropy)
+    loss = tf.reduce_mean(cross_entropy)
 
     optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
 
-    return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer")
+    return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer"), lovasz, lovasz_optimize
 
 def train_validation(X_train, X_train_mask, X_train_id):
     assert len(X_train) == len(X_train_mask)
@@ -142,7 +144,7 @@ def get_next_batch(X, mask, id):
         yield np.copy(X[start_index:start_index+config.batch_size, :, :, :]), np.copy(mask[start_index:start_index+config.batch_size, :, :, :]), np.copy(id[start_index:start_index+config.batch_size])
         start_index += config.batch_size
 
-def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, sess):
+def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess):
     print("Training...")
     rnd = np.random.RandomState(seed=1977)
     util.reset_vars(sess)
@@ -153,15 +155,19 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, out, ses
     ious = None
     df_empty = pd.DataFrame({th: [] for th in config.thresholds})
     df_empty['epoch'] = []
-
+    loss_fn = loss
+    optimizer_fn = optimizer
     for i in range(config.epochs):
         print("Epoch {}".format(i))
+        if (i + 1) <= config.lovasz_epochs:
+            loss_fn = lovasz
+            optimizer_fn = lovasz_opt
         ii = 0
         for batch, mask_batch, id_batch in get_next_batch(X, mask, id_tr):
-            sess.run(optimizer, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
+            sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
             if(ii % config.display_steps == 0):
-                cost = sess.run(loss, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
-                cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
+                cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = sess.run(out, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
@@ -224,7 +230,7 @@ if __name__ == "__main__":
     X_train, X_train_id, X_train_mask, X_test, X_test_id = preprocess()
     X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)
-    loss, optimizer, out = build_net()
+    loss, optimizer, out, lovasz_opt, lovasz = build_net()
     if os.path.isfile(os.path.join(config.CACHE_PATH, "{}.meta".format(config.MODEL_FILENAME))):
         print("Restoring model...")
         sess = tf.Session()
@@ -248,7 +254,7 @@ if __name__ == "__main__":
             y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
     else:
-        y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
+        y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess)
         df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
         cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
         th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
