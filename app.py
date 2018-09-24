@@ -130,6 +130,7 @@ def choose_batch(X, mask, id, rnd):
 def get_next_batch(X, mask, id):
     start_index = 0
     end_index = len(X)
+    print("End index {}".format(end_index))
     while start_index <= end_index:
         yield np.copy(X[start_index:start_index+config.batch_size, :, :, :]), np.copy(mask[start_index:start_index+config.batch_size, :, :, :]), np.copy(id[start_index:start_index+config.batch_size])
         start_index += config.batch_size
@@ -242,19 +243,20 @@ if __name__ == "__main__":
         y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, out, sess)
         df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
         cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
+        th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1)
+        print("Max threshold {}".format(th_max))
     no_test = y_pred.shape[0]
-    for th in config.thresholds:
-        y_pred_def = y_pred
-        #y_pred_def.shape[0] == 18000
+    y_pred_def = y_pred
+    #y_pred_def.shape[0] == 18000
 
-        y_pred_def = (y_pred_def > th) * 1
+    y_pred_def = (y_pred_def > th_max) * 1
 
-        to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
-        #assert X_test_id.shape[0] == 18000
-        sub = pd.DataFrame.from_dict(to_submit, orient='index')
-        sub.index.names = ['id']
-        sub.columns = ['rle_mask']
-        sub.to_csv(os.path.join(config.CACHE_PATH, "submit-{}.csv".format(th)))
+    to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
+    #assert X_test_id.shape[0] == 18000
+    sub = pd.DataFrame.from_dict(to_submit, orient='index')
+    sub.index.names = ['id']
+    sub.columns = ['rle_mask']
+    sub.to_csv(os.path.join(config.CACHE_PATH, "submit-{}.csv".format(th_max)))
 
     print("Done")
 
