@@ -107,9 +107,9 @@ def build_net():
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
     if config.use_lovasz_loss:
-        lovasz = losses.lovasz_hinge_flat(logits=tf.reshape(out_layer, shape=(1, -1)),
-                                                               labels= tf.reshape(y, shape=(1, -1)))
-        lovasz_optimize = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(tf.reduce_mean(lovasz))
+        lovasz = tf.reduce_mean(losses.lovasz_hinge_flat(logits=tf.reshape(out_layer, shape=(1, -1)),
+                                                               labels= tf.reshape(y, shape=(1, -1))))
+        lovasz_optimize = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(lovasz)
     else:
         lovasz = None
         lovasz_optimize = None
