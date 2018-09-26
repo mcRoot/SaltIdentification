@@ -62,11 +62,11 @@ def encode_layer(input=None, feature_maps=32, initializer=None, activation=tf.nn
         p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
     return p
 
-def decode_layer(input=None, input_size=2048, output_size=1024, out_img_shape=4, batch_size=None, initializer=None, activation=tf.nn.relu):
+def decode_layer(input=None, input_size=2048, output_size=1024, out_img_shape=4, batch_size=None, activation=tf.nn.relu):
     p = tf.nn.conv2d_transpose(input, filter=tf.Variable(tf.random_normal([3, 3, output_size, input_size], mean=0.0, stddev=0.02)),
                                output_shape=[batch_size, out_img_shape, out_img_shape, output_size], strides=[1, 2, 2, 1], padding="SAME")
     p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([output_size], mean=0.0, stddev=0.02)))
-    p = tf.nn.relu(p)
+    p = activation(p)
     return p
 
 
@@ -90,10 +90,10 @@ def build_net():
 
     bth_size = tf.placeholder(tf.int32, name="bth_size")
 
-    p = decode_layer(input=p, input_size=2048, output_size=1024, out_img_shape=13, batch_size=bth_size, initializer=initializer)
-    p = decode_layer(input=p, input_size=1024, output_size=512, out_img_shape=26, batch_size=bth_size, initializer=initializer)
-    p = decode_layer(input=p, input_size=512, output_size=256, out_img_shape=51, batch_size=bth_size, initializer=initializer)
-    p = decode_layer(input=p, input_size=256, output_size=128, out_img_shape=101, batch_size=bth_size, initializer=initializer)
+    p = decode_layer(input=p, input_size=2048, output_size=1024, out_img_shape=13, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=1024, output_size=512, out_img_shape=26, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=512, output_size=256, out_img_shape=51, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=256, output_size=128, out_img_shape=101, batch_size=bth_size)
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
