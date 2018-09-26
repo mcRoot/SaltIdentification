@@ -18,7 +18,7 @@ config = {
     "train_file": "train.csv",
     "depth_file": "depth:csv",
     "augment": True,
-    "persist": False
+    "persist": True
 }
 
 CACHE_PATH = os.path.abspath("./generated_data")

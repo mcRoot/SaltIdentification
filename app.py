@@ -37,8 +37,9 @@ def preprocess():
     else:
         X_test, X_test_id, _, _, _ = util.load_set(config.config["base_path"], False)
         X_test = util.normalize_set(X_test)
-        util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
-        util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
+        if config.config["persist"]:
+            util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
+            util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
     return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object)
 
 def build_net():
@@ -78,9 +79,20 @@ def build_net():
                          activation=tf.nn.relu, name="conv-7a")
     p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
 
-    p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-8")
+    p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same",
+                         activation=tf.nn.relu, name="conv-8")
+    p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same",
+                         activation=tf.nn.relu, name="conv-8a")
+    p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+
+    p = tf.layers.conv2d(p, 2048, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
 
     bth_size = tf.placeholder(tf.int32, name="bth_size")
+    p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 1024, 2048], mean=0.0, stddev=0.02)),
+                               output_shape=[bth_size, 4, 4, 1024], strides=[1, 2, 2, 1], padding="SAME")
+    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([1024], mean=0.0, stddev=0.02)))
+    p = tf.nn.relu(p)
+
     p = tf.nn.conv2d_transpose(p, filter=tf.Variable(tf.random_normal([3, 3, 512, 1024], mean=0.0, stddev=0.02)), output_shape=[bth_size, 7, 7, 512], strides=[1, 2, 2, 1], padding="SAME")
     p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([512], mean=0.0, stddev=0.02)))
     p = tf.nn.relu(p)
