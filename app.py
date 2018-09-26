@@ -170,7 +170,8 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
     print("Iteration {}".format(i))
     #print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
     print("Total time {} sec".format(time.time() - start_t))
-    util.save_tf_model(sess)
+    if config.save_model:
+        util.save_tf_model(sess)
     print("Devising testset results...")
     y_pred = np.empty((0, config.img_size *  config.img_size))
     X_test_aug = []
