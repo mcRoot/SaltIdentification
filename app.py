@@ -78,22 +78,25 @@ def build_net():
     y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
     p = encode_layer(input=x, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
-    p = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training)
-    p = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training, max_pooling=False)
-    p = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training)
-    p = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training, max_pooling=False)
-    p = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training)
-    p = encode_layer(input=p, feature_maps=1024, initializer=initializer, training=training, max_pooling=False)
-    p = encode_layer(input=p, feature_maps=1024, initializer=initializer, training=training)
+    c1 = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training) #52
+    p = encode_layer(input=c1, feature_maps=256, initializer=initializer, training=training, max_pooling=False)
+    c2 = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training) #26
+    p = encode_layer(input=c2, feature_maps=512, initializer=initializer, training=training, max_pooling=False)
+    c3 = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training) #13
+    p = encode_layer(input=c3, feature_maps=1024, initializer=initializer, training=training, max_pooling=False)
+    c4 = encode_layer(input=p, feature_maps=1024, initializer=initializer, training=training) #7
 
-    p = tf.layers.conv2d(p, 2048, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
+    p = tf.layers.conv2d(c4, 2048, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
 
     bth_size = tf.placeholder(tf.int32, name="bth_size")
 
-    p = decode_layer(input=p, input_size=2048, output_size=1024, out_img_shape=13, batch_size=bth_size)
-    p = decode_layer(input=p, input_size=1024, output_size=512, out_img_shape=26, batch_size=bth_size)
-    p = decode_layer(input=p, input_size=512, output_size=256, out_img_shape=51, batch_size=bth_size)
-    p = decode_layer(input=p, input_size=256, output_size=128, out_img_shape=101, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=2048, output_size=512, out_img_shape=13, batch_size=bth_size)
+    p = tf.concat([p, c3], axis=3)
+    p = decode_layer(input=p, input_size=1024, output_size=256, out_img_shape=26, batch_size=bth_size)
+    p = tf.concat([p, c2], axis=3)
+    p = decode_layer(input=p, input_size=512, output_size=128, out_img_shape=51, batch_size=bth_size)
+    p = tf.concat([p, c1], axis=3)
+    p = decode_layer(input=p, input_size=256, output_size=64, out_img_shape=101, batch_size=bth_size)
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
