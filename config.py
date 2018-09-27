@@ -25,7 +25,7 @@ CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
 user_resnet = False
-momentum = 0.9
+momentum = 0.99
 save_model = False
 lovasz_epochs = -1
 use_lovasz_loss = False
@@ -37,14 +37,14 @@ img_shape = (img_size, img_size)
 n_out_layers = 1
 n_channels = 1
 kernel_size = [3, 3]
-epochs = 25
-batch_size = 100
+epochs = 10
+batch_size = 120
 display_steps = 500
-learning_rate = 0.0001
-validation_perc = 0.06
+learning_rate = 0.01
+validation_perc = 0.007
 #dropout_rate = 0.2
 
-thresholds = [0.4, 0.45, 0.47, 0.5, 0.55, 0.6, 0.7, 0.75]
+thresholds = [0.4, 0.45, 0.47, 0.5, 0.55, 0.6]
 kaggle_thresholds = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
 
-pred_step = 2000
+pred_step = 400
