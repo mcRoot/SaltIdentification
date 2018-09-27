@@ -24,6 +24,7 @@ config = {
 CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
+user_resnet = False
 momentum = 0.9
 save_model = False
 lovasz_epochs = -1
