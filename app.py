@@ -44,9 +44,9 @@ def preprocess():
 
 def encode_layer(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     if config.user_resnet:
-        encode_layer_resnet(input=input, feature_maps=feature_maps, initializer=initializer, activation=activation, training=training, max_pooling=max_pooling)
+        return encode_layer_resnet(input=input, feature_maps=feature_maps, initializer=initializer, activation=activation, training=training, max_pooling=max_pooling)
     else:
-        encode_layer_norm(input=input, feature_maps=feature_maps, initializer=initializer, activation=activation, training=training, max_pooling=max_pooling)
+        return encode_layer_norm(input=input, feature_maps=feature_maps, initializer=initializer, activation=activation, training=training, max_pooling=max_pooling)
 
 def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="same",
