@@ -8,6 +8,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
 import cv2
+from sklearn.model_selection import StratifiedShuffleSplit
 
 def preprocess():
     print("Preprocessing...")
@@ -61,13 +62,17 @@ def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=
 
 def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     p = tf.layers.conv2d(input, feature_maps // 4, 1, kernel_initializer=initializer, padding="same",
-                         activation=activation)
+                         activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+    p = activation(p)
     p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same",
-                         activation=activation)
+                         activation=None)
+    p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+    p = activation(p)
     p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same",
                          activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+
     if input.shape[3] != feature_maps:
         input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same",
                          activation=None)
@@ -131,6 +136,14 @@ def build_net():
 
     return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer"), lovasz, lovasz_optimize
 
+def shuffle_set(X_train, X_train_mask, X_train_id, salt_coverage):
+    assert len(X_train) == len(X_train_mask)
+    assert len(X_train) == len (X_train_id)
+    p = np.random.RandomState(seed=1977).permutation(len(X_train))
+    X_train, X_train_mask, X_train_id =  np.copy(X_train[p]), np.copy(X_train_mask[p]), np.copy(X_train_id[p])
+    salt_coverage = salt_coverage.loc[p]
+    return X_train, X_train_mask, X_train_id, salt_coverage
+
 def train_validation(X_train, X_train_mask, X_train_id):
     assert len(X_train) == len(X_train_mask)
     assert len(X_train) == len (X_train_id)
@@ -154,7 +167,7 @@ def get_next_batch(X, mask, id):
         yield np.copy(X[start_index:start_index+config.batch_size, :, :, :]), np.copy(mask[start_index:start_index+config.batch_size, :, :, :]), np.copy(id[start_index:start_index+config.batch_size])
         start_index += config.batch_size
 
-def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess):
+def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess, final_prediction=False):
     print("Training...")
     rnd = np.random.RandomState(seed=1977)
     util.reset_vars(sess)
@@ -175,7 +188,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
         ii = 0
         for batch, mask_batch, id_batch in get_next_batch(X, mask, id_tr):
             sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
-            if(ii % config.display_steps == 0):
+            if(not final_prediction and ii % config.display_steps == 0):
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
                 cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = sess.run(out, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
@@ -202,44 +215,51 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
     print("Total time {} sec".format(time.time() - start_t))
     if config.save_model:
         util.save_tf_model(sess)
-    print("Devising testset results...")
-    y_pred = np.empty((0, config.img_size *  config.img_size))
-    X_test_aug = []
-    if config.tta:
-        X_test_aug = util.tta_augment(X_test)
-    for j in range(int(X_test.shape[0] / config.pred_step)):
-        print("[{}] predicting...".format((j + 1)))
-        y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-        y_aug = []
-        y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
-        for trans, aug in X_test_aug.items():
-            y_tmp = sess.run(out, feed_dict={"x:0": aug[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
-                                     "training:0": False, "bth_size:0": config.pred_step})
-            y_tmp = util.deaugment(y_tmp, trans)
-            y_aug.append(y_tmp.reshape((-1, config.img_size * config.img_size), order="F"))
-        y_aug = np.array(y_aug)
-        y_mean = y_aug.mean(axis=0)
-        y_pred = np.append(y_pred, y_mean, axis=0)
+    if final_prediction:
+        print("Devising testset results...")
+        y_pred = np.empty((0, config.img_size *  config.img_size))
+        X_test_aug = []
+        if config.tta:
+            X_test_aug = util.tta_augment(X_test)
+        for j in range(int(X_test.shape[0] / config.pred_step)):
+            print("[{}] predicting...".format((j + 1)))
+            y1 = sess.run(out, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+            y_aug = []
+            y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
+            for trans, aug in X_test_aug.items():
+                y_tmp = sess.run(out, feed_dict={"x:0": aug[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
+                                         "training:0": False, "bth_size:0": config.pred_step})
+                y_tmp = util.deaugment(y_tmp, trans)
+                y_aug.append(y_tmp.reshape((-1, config.img_size * config.img_size), order="F"))
+            y_aug = np.array(y_aug)
+            y_mean = y_aug.mean(axis=0)
+            y_pred = np.append(y_pred, y_mean, axis=0)
 
-    if (j + 1) * config.pred_step < X_test.shape[0]:
-        print("[{}] predicting...".format((j + 1)))
-        y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-        y_aug = []
-        y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
-        for aug in X_test_aug:
-            y_aug.append(sess.run(out, feed_dict={"x:0": aug[(j + 1) * config.pred_step:, :, :, :],
-                                                  "training:0": False, "bth_size:0": config.pred_step}).reshape(
-                (-1, config.img_size * config.img_size), order="F"))
-        y_aug = np.array(y_aug)
-        y_mean = y_aug.mean(axis=0)
-        y_pred = np.append(y_pred, y_mean, axis=0)
+        if (j + 1) * config.pred_step < X_test.shape[0]:
+            print("[{}] predicting...".format((j + 1)))
+            y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+            y_aug = []
+            y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
+            for aug in X_test_aug:
+                y_aug.append(sess.run(out, feed_dict={"x:0": aug[(j + 1) * config.pred_step:, :, :, :],
+                                                      "training:0": False, "bth_size:0": config.pred_step}).reshape(
+                    (-1, config.img_size * config.img_size), order="F"))
+            y_aug = np.array(y_aug)
+            y_mean = y_aug.mean(axis=0)
+            y_pred = np.append(y_pred, y_mean, axis=0)
+    else:
+        y_pred = np.empty((0, config.img_size * config.img_size))
+
     return y_pred, df_empty, cost_df
 
 
 
 if __name__ == "__main__":
     X_train, X_train_id, X_train_mask, X_test, X_test_id = preprocess()
-    X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
+    df_coverage = pd.read_csv(os.path.join(config.config["base_path"], "coverage-cat.csv"))
+    X_train, X_train_mask, X_train_id, df_coverage = shuffle_set(X_train, X_train_mask, X_train_id, df_coverage)
+
+    #X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)
     loss, optimizer, out, lovasz, lovasz_opt = build_net()
     if os.path.isfile(os.path.join(config.CACHE_PATH, "{}.meta".format(config.MODEL_FILENAME))):
@@ -265,11 +285,43 @@ if __name__ == "__main__":
             y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
             y_pred = np.append(y_pred, y1, axis=0)
     else:
-        y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess)
-        df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
-        cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
-        th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
+        ious = []
+        costs = []
+        ths = []
+        sss = StratifiedShuffleSplit(n_splits=3, test_size=config.validation_perc, random_state=1977)
+        #X_train, X_train_id, X_train_mask
+        i = 1
+        final_prediction = False
+        for train_index, val_index in sss.split(X_train, df_coverage.coverage_cat):
+            print("Cross validation fold {}".format(i))
+            X_reduced_train = X_train[train_index,:,:,:]
+            X_reduced_train_id = X_train_id[train_index]
+            X_mask_red = X_train_mask[train_index,:,:,:]
+            X_validation = X_train[val_index,:,:,:]
+            X_mask_validation = X_train_mask[val_index,:,:,:]
+
+            y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess)
+            ious.append(("ious_val-{}.csv".format(i), df_empty))
+            costs.append(("costs_train-{}.csv".format(i), cost_df))
+            th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
+            ths.append(th_max)
+
+            #df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
+            #cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
+
+            i += 1
+        print("Thresholds {}".format(ths))
+        th_max = sum(ths) / float(len(ths))
         print("Max threshold {}".format(th_max))
+        for c in costs:
+            c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
+        for c in ious:
+            c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
+        final_prediction = True
+        y_pred, df_empty, cost_df = train_net(X_train, X_train_mask, X_train_id, [],
+                                              [], X_test, loss, optimizer, lovasz_opt, lovasz, out, sess,
+                                              final_prediction=final_prediction)
+
     no_test = y_pred.shape[0]
     y_pred_def = y_pred
     #y_pred_def.shape[0] == 18000
