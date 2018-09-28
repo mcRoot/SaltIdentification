@@ -49,6 +49,16 @@ def encode_layer(input=None, feature_maps=32, initializer=None, activation=tf.nn
     else:
         return encode_layer_norm(input=input, feature_maps=feature_maps, initializer=initializer, activation=activation, training=training, max_pooling=max_pooling)
 
+def encode_layer_unet(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
+    n = None
+    p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
+                         activation=activation)
+    p = tf.layers.conv2d(p, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
+                         activation=activation)
+    if max_pooling:
+        n = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="VALID")
+    return p, n
+
 def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=activation)
@@ -85,12 +95,60 @@ def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activatio
     return p
 
 def decode_layer(input=None, input_size=2048, output_size=1024, out_img_shape=4, batch_size=None, activation=tf.nn.relu):
-    p = tf.nn.conv2d_transpose(input, filter=tf.Variable(tf.random_normal([3, 3, output_size, input_size], mean=0.0, stddev=0.02)),
+    n = input.shape[1] * input.shape[2] * input.shape[3]
+    std_dev = np.sqrt(2.0 / n.value)
+    p = tf.nn.conv2d_transpose(input, filter=tf.Variable(tf.random_normal([3, 3, output_size, input_size], mean=0.0, stddev=std_dev)),
                                output_shape=[batch_size, out_img_shape, out_img_shape, output_size], strides=[1, 2, 2, 1], padding="SAME")
-    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([output_size], mean=0.0, stddev=0.02)))
+    n = p.shape[1] * p.shape[2] * p.shape[3]
+    std_dev = np.sqrt(2.0 / n.value)
+    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([output_size], mean=0.0, stddev=std_dev)))
     p = activation(p)
     return p
 
+
+def build_net_unet_v2():
+    initializer = tf.contrib.layers.xavier_initializer(uniform=False, dtype=tf.float32)
+    x = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_channels], name="x")
+    x = tf.image.resize_images(x, size=[196, 196],method=tf.image.ResizeMethod.NEAREST_NEIGHBOR, align_corners=False, preserve_aspect_ratio=True)
+    if config.conv_to_rgb:
+        x = tf.image.grayscale_to_rgb(x)
+    y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
+    training = tf.placeholder(tf.bool, name="training")
+    (c1, c1c) = encode_layer_unet(input=x, feature_maps=64, initializer=initializer, training=training) # 196 -> 192
+    (c2, c2c) = encode_layer_unet(input=c1c, feature_maps=128, initializer=initializer, training=training)  # 96 -> 92
+    (c3, c3c) = encode_layer_unet(input=c2c, feature_maps=256, initializer=initializer, training=training)  # 46 -> 42
+    c4, _ = encode_layer_unet(input=c3c, feature_maps=512, initializer=initializer, training=training, max_pooling=False)  # 21 -> 17
+
+    bth_size = tf.placeholder(tf.int32, name="bth_size")
+
+    p = decode_layer(input=c4, input_size=512, output_size=256, out_img_shape=33, batch_size=bth_size) # 17 -> 33
+    #cropping c3
+    c3 = tf.image.resize_images(c3, size=[33, 33], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    p = tf.concat([p, c3], axis=3)
+    p, _ = encode_layer_unet(input=p, feature_maps=256, initializer=initializer, training=training, max_pooling=False)
+
+    p = decode_layer(input=p, input_size=256, output_size=128, out_img_shape=57, batch_size=bth_size)
+    # cropping c2
+    c2 = tf.image.resize_images(c2, size=[57, 57], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    p = tf.concat([p, c2], axis=3)
+    p, _ = encode_layer_unet(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
+
+    p = decode_layer(input=p, input_size=128, output_size=64, out_img_shape=105, batch_size=bth_size)
+    # cropping c1
+    c1 = tf.image.resize_images(c1, size=[105, 105], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    p = tf.concat([p, c1], axis=3)
+    p, _ = encode_layer_unet(input=p, feature_maps=64, initializer=initializer, training=training, max_pooling=False)
+
+
+    out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out", activation=None)
+    print("outlayer: {}".format(out_layer))
+
+    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
+                                                            labels=tf.reshape(y, shape=(-1, 1)))
+    loss = tf.reduce_mean(cross_entropy)
+    optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
+
+    return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer"), None, None
 
 def build_net():
     initializer = tf.contrib.layers.xavier_initializer(uniform=False,dtype=tf.float32)
@@ -260,7 +318,11 @@ if __name__ == "__main__":
 
     #X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)
-    loss, optimizer, out, lovasz, lovasz_opt = build_net()
+    if config.use_original_unet:
+        print("Using original UNET model")
+        loss, optimizer, out, lovasz, lovasz_opt = build_net_unet_v2()
+    else:
+        loss, optimizer, out, lovasz, lovasz_opt = build_net()
     if os.path.isfile(os.path.join(config.CACHE_PATH, "{}.meta".format(config.MODEL_FILENAME))):
         print("Restoring model...")
         sess = tf.Session()
@@ -287,7 +349,7 @@ if __name__ == "__main__":
         ious = []
         costs = []
         ths = []
-        sss = StratifiedShuffleSplit(n_splits=3, test_size=config.validation_perc, random_state=1977)
+        sss = StratifiedShuffleSplit(n_splits=config.n_cv, test_size=config.validation_perc, random_state=1977)
         #X_train, X_train_id, X_train_mask
         i = 1
         final_prediction = False
