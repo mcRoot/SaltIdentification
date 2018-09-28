@@ -210,7 +210,6 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
     cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch, "cost_val": cost_val})
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
-    print("Iteration {}".format(i))
     #print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
     print("Total time {} sec".format(time.time() - start_t))
     if config.save_model:
@@ -292,36 +291,40 @@ if __name__ == "__main__":
         #X_train, X_train_id, X_train_mask
         i = 1
         final_prediction = False
-        for train_index, val_index in sss.split(X_train, df_coverage.coverage_cat):
-            print("Cross validation fold {}".format(i))
-            X_reduced_train = X_train[train_index,:,:,:]
-            X_reduced_train_id = X_train_id[train_index]
-            X_mask_red = X_train_mask[train_index,:,:,:]
-            X_validation = X_train[val_index,:,:,:]
-            X_mask_validation = X_train_mask[val_index,:,:,:]
+        if not config.skip_cv:
+            for train_index, val_index in sss.split(X_train, df_coverage.coverage_cat):
+                print("Cross validation fold {}".format(i))
+                X_reduced_train = X_train[train_index,:,:,:]
+                X_reduced_train_id = X_train_id[train_index]
+                X_mask_red = X_train_mask[train_index,:,:,:]
+                X_validation = X_train[val_index,:,:,:]
+                X_mask_validation = X_train_mask[val_index,:,:,:]
 
-            y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess)
-            ious.append(("ious_val-{}.csv".format(i), df_empty))
-            costs.append(("costs_train-{}.csv".format(i), cost_df))
-            th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
-            ths.append(th_max)
+                y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess)
+                ious.append(("ious_val-{}.csv".format(i), df_empty))
+                costs.append(("costs_train-{}.csv".format(i), cost_df))
+                th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
+                ths.append(th_max)
 
-            #df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
-            #cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
+                #df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
+                #cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
 
-            i += 1
-        print("Thresholds {}".format(ths))
-        th_max = sum(ths) / float(len(ths))
-        print("Max threshold {}".format(th_max))
-        for c in costs:
-            c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
-        for c in ious:
-            c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
+                i += 1
+            print("Thresholds {}".format(ths))
+            th_max = sum(ths) / float(len(ths))
+            print("Max threshold {}".format(th_max))
+            for c in costs:
+                c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
+            for c in ious:
+                c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
+        else:
+            th_max = 0.48
         final_prediction = True
         y_pred, df_empty, cost_df = train_net(X_train, X_train_mask, X_train_id, [],
                                               [], X_test, loss, optimizer, lovasz_opt, lovasz, out, sess,
                                               final_prediction=final_prediction)
 
+    print("Generating results: adopted threshold is: {}".format(th_max))
     no_test = y_pred.shape[0]
     y_pred_def = y_pred
     #y_pred_def.shape[0] == 18000

@@ -24,6 +24,7 @@ config = {
 CACHE_PATH = os.path.abspath("./generated_data")
 MODEL_FILENAME = "nn_model.tf"
 
+skip_cv = True
 user_resnet = False
 momentum = 0.99
 save_model = False
