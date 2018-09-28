@@ -238,14 +238,20 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
     df_empty['epoch'] = []
     loss_fn = loss
     optimizer_fn = optimizer
+    batch_norm_ops = []
+    if config.user_resnet:
+        batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     for i in range(config.epochs):
-        print("Epoch {}".format(i))
+        print("Epoch {}, elapsed min {:.2f}".format(i, ((time.time() - float(start_t)) / 60.0)))
         if (config.epochs - (i + 1)) <= config.lovasz_epochs:
             loss_fn = lovasz
             optimizer_fn = lovasz_opt
         ii = 0
         for batch, mask_batch, id_batch in get_next_batch(X, mask, id_tr):
-            sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
+            if config.user_resnet:
+                sess.run([optimizer_fn, batch_norm_ops], feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
+            else:
+                sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
             if(not final_prediction and ii % config.display_steps == 0):
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
                 cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
