@@ -71,21 +71,21 @@ def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=
     return p
 
 def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
-    p = tf.layers.conv2d(input, feature_maps // 4, 1, kernel_initializer=initializer, padding="same",
-                         activation=None)
+    with tf.device("/cpu:0"):
+        p = tf.layers.conv2d(input, feature_maps // 4, 1, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
-    p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same",
-                         activation=None)
+    with tf.device("/cpu:0"):
+        p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
-    p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same",
-                         activation=None)
+    with tf.device("/cpu:0"):
+        p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
 
     if input.shape[3] != feature_maps:
-        input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same",
-                         activation=None)
+        with tf.device("/cpu:0"):
+            input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
     else:
         input_mod = input
     p = p + input_mod
@@ -176,7 +176,7 @@ def build_net():
     p = tf.concat([p, c2], axis=3)
     p = decode_layer(input=p, input_size=512, output_size=128, out_img_shape=51, batch_size=bth_size)
     p = tf.concat([p, c1], axis=3)
-    p = decode_layer(input=p, input_size=256, output_size=64, out_img_shape=101, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=256, output_size=128, out_img_shape=101, batch_size=bth_size)
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
@@ -241,6 +241,9 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
     batch_norm_ops = []
     if config.user_resnet:
         batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
+    g = tf.get_default_graph()
+    g.finalize()
     for i in range(config.epochs):
         print("Epoch {}, elapsed min {:.2f}".format(i, ((time.time() - float(start_t)) / 60.0)))
         if (config.epochs - (i + 1)) <= config.lovasz_epochs:
