@@ -71,21 +71,17 @@ def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=
     return p
 
 def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
-    with tf.device("/cpu:0"):
-        p = tf.layers.conv2d(input, feature_maps // 4, 1, kernel_initializer=initializer, padding="same", activation=None)
+    p = tf.layers.conv2d(input, feature_maps // 4, 1, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
-    with tf.device("/cpu:0"):
-        p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
+    p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
-    with tf.device("/cpu:0"):
-        p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
+    p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
 
     if input.shape[3] != feature_maps:
-        with tf.device("/cpu:0"):
-            input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
+        input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
     else:
         input_mod = input
     p = p + input_mod
