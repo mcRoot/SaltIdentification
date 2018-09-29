@@ -52,11 +52,22 @@ def encode_layer(input=None, feature_maps=32, initializer=None, activation=tf.nn
 def encode_layer_unet(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     n = None
     p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
-                         activation=activation)
-    p = tf.layers.conv2d(p, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
-                         activation=activation)
+                         activation=None)
+    p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+    p = activation(p)
+    p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
+                         activation=None)
+    p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+    p = activation(p)
+
+    if input.shape[3] != feature_maps:
+        input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
+    else:
+        input_mod = input
+    p = p + input_mod
+    p = tf.nn.relu(p)
     if max_pooling:
-        n = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="VALID")
+        p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
     return p, n
 
 def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
@@ -228,7 +239,6 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
     start_t = time.time()
     step = []
     cost_batch = []
-    cost_val = []
     ious = None
     df_empty = pd.DataFrame({th: [] for th in config.thresholds})
     df_empty['epoch'] = []
@@ -239,7 +249,6 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
         batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
     g = tf.get_default_graph()
-    g.finalize()
     for i in range(config.epochs):
         print("Epoch {}, elapsed min {:.2f}".format(i, ((time.time() - float(start_t)) / 60.0)))
         if (config.epochs - (i + 1)) <= config.lovasz_epochs:
@@ -247,14 +256,21 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
             optimizer_fn = lovasz_opt
         ii = 0
         for batch, mask_batch, id_batch in get_next_batch(X, mask, id_tr):
-            if config.user_resnet:
+            if config.user_resnet or config.use_original_unet:
                 sess.run([optimizer_fn, batch_norm_ops], feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
             else:
                 sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
             if(not final_prediction and ii % config.display_steps == 0):
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
-                cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
-                out_val = sess.run(out, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                #cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                out_val = np.empty((0, config.img_size * config.img_size))
+                for j in range(int(X_val.shape[0] / config.pred_step)):
+                    out_val_pred = sess.run(out, feed_dict={"x:0": X_val[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+                    out_val.append(out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
+                if (j + 1) * config.pred_step < X_val.shape[0]:
+                    out_val_pred = sess.run(out, feed_dict={"x:0": X_val[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+                    out_val.append(out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
+
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
                 def_res = util.devise_complete_iou_results(out_val, mask_val_tmp, config.thresholds, config.kaggle_thresholds)
@@ -263,14 +279,13 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 df_empty = df_empty.append(df_calc)
 
                 print("Epoch {} Iteration {}".format(i, ii))
-                print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
+                print("Loss -> train: {:.4f}".format(cost))
                 print("IoUs {}".format(def_res))
                 step.append(ii * (i + 1))
                 cost_batch.append(cost)
-                cost_val.append(cost_test)
             ii += 1
         print("Total batches {}".format(ii))
-    cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch, "cost_val": cost_val})
+    cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch})
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
     #print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
