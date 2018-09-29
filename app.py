@@ -246,7 +246,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
     loss_fn = loss
     optimizer_fn = optimizer
     batch_norm_ops = []
-    if config.user_resnet:
+    if config.user_resnet or config.use_original_unet:
         batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
     g = tf.get_default_graph()
