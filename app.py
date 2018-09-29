@@ -267,10 +267,10 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 out_val = np.empty((0, config.img_size * config.img_size))
                 for j in range(int(X_val.shape[0] / config.pred_step)):
                     out_val_pred = sess.run(out, feed_dict={"x:0": X_val[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-                    out_val.append(out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
+                    out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
                 if (j + 1) * config.pred_step < X_val.shape[0]:
                     out_val_pred = sess.run(out, feed_dict={"x:0": X_val[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-                    out_val.append(out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
+                    out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
 
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
