@@ -69,7 +69,7 @@ def encode_layer_unet(input=None, feature_maps=32, initializer=None, activation=
     n = p
     if max_pooling:
         p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
-    return p, n
+    return n, p
 
 def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="same",
