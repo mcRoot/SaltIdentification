@@ -55,13 +55,14 @@ def encode_layer_unet(input=None, feature_maps=32, initializer=None, activation=
                          activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
-    p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
+    p = tf.layers.conv2d(p, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
                          activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
 
     if input.shape[3] != feature_maps:
-        input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
+        input_mod = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid", activation=None)
+        input_mod = tf.layers.conv2d(input_mod, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid", activation=None)
     else:
         input_mod = input
     p = p + input_mod
