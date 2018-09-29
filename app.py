@@ -51,8 +51,7 @@ def encode_layer(input=None, feature_maps=32, initializer=None, activation=tf.nn
 
 def encode_layer_unet(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     n = None
-    p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
-                         activation=None)
+    p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
     p = tf.layers.conv2d(p, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="valid",
@@ -67,6 +66,7 @@ def encode_layer_unet(input=None, feature_maps=32, initializer=None, activation=
         input_mod = input
     p = p + input_mod
     p = tf.nn.relu(p)
+    n = p
     if max_pooling:
         p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
     return p, n
