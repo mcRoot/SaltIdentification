@@ -62,7 +62,7 @@ def kaggle_iou_metric(complete_pred, masks, kaggle_th):
 def devise_complete_iou_results_v2(pred, mask, image_th=[], kaggle_th=[]):
     res = {}
     for th in image_th:
-        res[th] = complete_iou_results(pred, mask, kaggle_th, th)
+        res[th] = [complete_iou_results(pred, mask, kaggle_th, th)]
     return res
 
 def complete_iou_results(pred, mask, kaggle_th=[], th=0):
@@ -77,12 +77,6 @@ def complete_iou_results(pred, mask, kaggle_th=[], th=0):
         curr = res.mean()
         final_res.append(curr)
     return np.array(final_res).mean()
-
-
-
-
-    res = full_IoU_metric_2(pred, mask, image_th)
-    return kaggle_iou_metric_2(res, mask, kaggle_th)
 
 def devise_complete_iou_results(pred, mask, image_th=[], kaggle_th=[]):
     print("Pred shape is {}".format(pred.shape))
