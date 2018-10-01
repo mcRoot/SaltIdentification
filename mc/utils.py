@@ -66,16 +66,15 @@ def devise_complete_iou_results_v2(pred, mask, image_th=[], kaggle_th=[]):
     return res
 
 def complete_iou_results(pred, mask, kaggle_th=[], th=0):
-    print("Pred shape is {}".format(pred.shape))
     kg_ths = np.array(kaggle_th)
     final_res = []
     for i, p in enumerate(pred):
         pred_def = (p > th) * 1
-        res = []
         c_iou = metric_iou(pred_def, mask[i])
         res = (kg_ths < c_iou) * 1.0
         curr = res.mean()
         final_res.append(curr)
+    print("Final res {}".format(final_res))
     return np.array(final_res).mean()
 
 def devise_complete_iou_results(pred, mask, image_th=[], kaggle_th=[]):
