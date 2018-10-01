@@ -179,13 +179,13 @@ def build_net():
 
     bth_size = tf.placeholder(tf.int32, name="bth_size")
 
-    p = decode_layer(input=p, input_size=1024, output_size=256, out_img_shape=13, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=1024, output_size=512, out_img_shape=13, batch_size=bth_size)
     p = tf.concat([p, c3], axis=3)
-    p = decode_layer(input=p, input_size=512, output_size=128, out_img_shape=26, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=1024, output_size=256, out_img_shape=26, batch_size=bth_size)
     p = tf.concat([p, c2], axis=3)
-    p = decode_layer(input=p, input_size=256, output_size=64, out_img_shape=51, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=512, output_size=128, out_img_shape=51, batch_size=bth_size)
     p = tf.concat([p, c1], axis=3)
-    p = decode_layer(input=p, input_size=128, output_size=64, out_img_shape=101, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=256, output_size=64, out_img_shape=101, batch_size=bth_size)
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
