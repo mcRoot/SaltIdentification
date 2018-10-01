@@ -167,15 +167,15 @@ def build_net():
     y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
     p, _ = encode_layer(input=x, feature_maps=64, initializer=initializer, training=training, max_pooling=False)
-    p, c1 = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training) #52
-    p, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
-    p, c2 = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training) #26
-    p, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training, max_pooling=False)
-    p, c3 = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training) #13
-    p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training, max_pooling=False)
-    p, c4 = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training) #7
+    p, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training) #52
+    p, c1 = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
+    p, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training) #26
+    p, c2 = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training, max_pooling=False)
+    p, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training) #13
+    p, c3 = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training, max_pooling=False)
+    p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training) #7
 
-    p = tf.layers.conv2d(c4, 1024, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
+    p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
 
     bth_size = tf.placeholder(tf.int32, name="bth_size")
 
