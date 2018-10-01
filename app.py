@@ -41,7 +41,7 @@ def preprocess():
         if config.config["persist"]:
             util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
             util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
-    return X_train[:100,:,:,:], np.array(X_train_id)[:100], X_train_mask[:100,:,:,:], X_test, np.array(X_test_id, dtype=np.object)
+    return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object)
 
 def encode_layer(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     if config.user_resnet:
