@@ -67,7 +67,7 @@ def devise_complete_iou_results_v2(pred, mask, image_th=[], kaggle_th=[]):
 
 def complete_iou_results(pred, mask, kaggle_th=[], th=0):
     kg_ths = np.array(kaggle_th)
-    print("{}".kg_ths)
+    print("{}".format(kg_ths))
     final_res = []
     for i, p in enumerate(pred):
         pred_def = (p > th) * 1
