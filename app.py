@@ -80,15 +80,15 @@ def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=
     #p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     if max_pooling:
         p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
-    return p
+    return p, None
 
 def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
-    p = tf.layers.conv2d(input, feature_maps // 4, 1, kernel_initializer=initializer, padding="same", activation=None)
+    p = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
-    p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
-    p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
-    p = activation(p)
+    #p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
+    #p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+    #p = activation(p)
     p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
 
@@ -98,9 +98,10 @@ def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activatio
         input_mod = input
     p = p + input_mod
     p = tf.nn.relu(p)
+    to_copy = p
     if max_pooling:
         p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
-    return p
+    return p, to_copy
 
 def decode_layer(input=None, input_size=2048, output_size=1024, out_img_shape=4, batch_size=None, activation=tf.nn.relu):
     n = input.shape[1] * input.shape[2] * input.shape[3]
@@ -165,26 +166,26 @@ def build_net():
         x = tf.image.grayscale_to_rgb(x)
     y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
-    p = encode_layer(input=x, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
-    c1 = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training) #52
-    p = encode_layer(input=c1, feature_maps=256, initializer=initializer, training=training, max_pooling=False)
-    c2 = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training) #26
-    p = encode_layer(input=c2, feature_maps=512, initializer=initializer, training=training, max_pooling=False)
-    c3 = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training) #13
-    p = encode_layer(input=c3, feature_maps=1024, initializer=initializer, training=training, max_pooling=False)
-    c4 = encode_layer(input=p, feature_maps=1024, initializer=initializer, training=training) #7
+    p, _ = encode_layer(input=x, feature_maps=64, initializer=initializer, training=training, max_pooling=False)
+    p, c1 = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training) #52
+    p, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
+    p, c2 = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training) #26
+    p, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training, max_pooling=False)
+    p, c3 = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training) #13
+    p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training, max_pooling=False)
+    p, c4 = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training) #7
 
-    p = tf.layers.conv2d(c4, 2048, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
+    p = tf.layers.conv2d(c4, 1024, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
 
     bth_size = tf.placeholder(tf.int32, name="bth_size")
 
-    p = decode_layer(input=p, input_size=2048, output_size=512, out_img_shape=13, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=1024, output_size=256, out_img_shape=13, batch_size=bth_size)
     p = tf.concat([p, c3], axis=3)
-    p = decode_layer(input=p, input_size=1024, output_size=256, out_img_shape=26, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=512, output_size=128, out_img_shape=26, batch_size=bth_size)
     p = tf.concat([p, c2], axis=3)
-    p = decode_layer(input=p, input_size=512, output_size=128, out_img_shape=51, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=256, output_size=64, out_img_shape=51, batch_size=bth_size)
     p = tf.concat([p, c1], axis=3)
-    p = decode_layer(input=p, input_size=256, output_size=128, out_img_shape=101, batch_size=bth_size)
+    p = decode_layer(input=p, input_size=128, output_size=64, out_img_shape=101, batch_size=bth_size)
 
     out_layer = tf.layers.conv2d(p, 1, 1, kernel_initializer=initializer, name="out")
     print("outlayer: {}".format(out_layer))
@@ -272,7 +273,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                     out_val_pred = sess.run(out, feed_dict={"x:0": X_val[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
                     out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
 
-                out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
+                #out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
                 def_res = util.devise_complete_iou_results(out_val, mask_val_tmp, config.thresholds, config.kaggle_thresholds)
                 df_calc = pd.DataFrame(def_res)
@@ -410,16 +411,18 @@ if __name__ == "__main__":
     print("Generating results: adopted threshold is: {}".format(th_max))
     no_test = y_pred.shape[0]
     y_pred_def = y_pred
+    util.persist(os.path.join(config.CACHE_PATH, "pred_def.pck"), y_pred_def)
     #y_pred_def.shape[0] == 18000
 
-    y_pred_def = (y_pred_def > th_max) * 1
+    for curr_th in config.threshold:
+        y_pred_def = (y_pred_def > curr_th) * 1
 
-    to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
-    #assert X_test_id.shape[0] == 18000
-    sub = pd.DataFrame.from_dict(to_submit, orient='index')
-    sub.index.names = ['id']
-    sub.columns = ['rle_mask']
-    sub.to_csv(os.path.join(config.CACHE_PATH, "submit-{}.csv".format(th_max)))
+        to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
+        #assert X_test_id.shape[0] == 18000
+        sub = pd.DataFrame.from_dict(to_submit, orient='index')
+        sub.index.names = ['id']
+        sub.columns = ['rle_mask']
+        sub.to_csv(os.path.join(config.CACHE_PATH, "submit-{}.csv".format(curr_th)))
 
     print("Done")
 
