@@ -41,7 +41,7 @@ def preprocess():
         if config.config["persist"]:
             util.persist(os.path.join(config.CACHE_PATH, config.config['test_persisted']), X_test)
             util.persist(os.path.join(config.CACHE_PATH, config.config['test_id_persisted']), X_test_id)
-    return X_train, np.array(X_train_id), X_train_mask, X_test, np.array(X_test_id, dtype=np.object)
+    return X_train[:100,:,:,:], np.array(X_train_id)[:100], X_train_mask[:100,:,:,:], X_test, np.array(X_test_id, dtype=np.object)
 
 def encode_layer(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     if config.user_resnet:
@@ -267,7 +267,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 out_val = np.empty((0, config.img_size * config.img_size))
                 for j in range(int(X_val.shape[0] / config.pred_step)):
                     out_val_pred = sess.run(out, feed_dict={"x:0": X_val[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-                    out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
+                    out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"), axis=0)
                 if (j + 1) * config.pred_step < X_val.shape[0]:
                     out_val_pred = sess.run(out, feed_dict={"x:0": X_val[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
                     out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
