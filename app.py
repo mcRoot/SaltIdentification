@@ -276,6 +276,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
 
                 #out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
+                print("Tot val samples {}".format(out_val.shape[0]))
                 def_res = util.devise_complete_iou_results(out_val, mask_val_tmp, config.thresholds, config.kaggle_thresholds)
                 df_calc = pd.DataFrame(def_res)
                 df_calc['epoch'] = (ii * (i + 1))
