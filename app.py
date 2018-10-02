@@ -403,7 +403,7 @@ if __name__ == "__main__":
         ious = []
         costs = []
         ths = []
-        sss = StratifiedShuffleSplit(n_splits=config.n_cv, test_size=config.validation_perc, random_state=1977)
+        sss = StratifiedShuffleSplit(n_splits=config.n_cv, test_size=config.validation_perc, random_state=42)
         #X_train, X_train_id, X_train_mask
         i = 1
         final_prediction = False
