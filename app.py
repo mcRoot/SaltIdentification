@@ -265,7 +265,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
             if(not final_prediction and ii % config.display_steps == 0):
                 print("Validation results...")
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
-                #cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = sess.run(out, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
@@ -294,7 +294,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 df_empty = df_empty.append(df_calc)
 
                 print("Epoch {} Iteration {}".format(i, ii))
-                print("Loss -> train: {:.4f}".format(cost))
+                print("Loss -> train: {:.4f} test: {:.4f}".format(cost, cost_test))
                 print("IoUs {}".format(def_res))
                 step.append(ii * (i + 1))
                 cost_batch.append(cost)
