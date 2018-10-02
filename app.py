@@ -10,6 +10,8 @@ import pandas as pd
 import cv2
 from sklearn.model_selection import StratifiedShuffleSplit
 
+current_global_step = None
+
 def preprocess():
     print("Preprocessing...")
     preprocessed_file = os.path.join(config.CACHE_PATH, config.config['train_persisted'])
@@ -74,10 +76,8 @@ def encode_layer_unet(input=None, feature_maps=32, initializer=None, activation=
 def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=activation)
-    #p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = tf.layers.conv2d(p, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="same",
                          activation=activation)
-    #p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     if max_pooling:
         p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
     return p, None
@@ -106,11 +106,11 @@ def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activatio
 def decode_layer(input=None, input_size=2048, output_size=1024, out_img_shape=4, batch_size=None, activation=tf.nn.relu):
     n = input.shape[1] * input.shape[2] * input.shape[3]
     std_dev = np.sqrt(2.0 / n.value)
-    p = tf.nn.conv2d_transpose(input, filter=tf.Variable(tf.random_normal([3, 3, output_size, input_size], mean=0.0, stddev=std_dev)),
+    p = tf.nn.conv2d_transpose(input, filter=tf.Variable(tf.random_normal([3, 3, output_size, input_size], mean=0.0, stddev=0.02)),
                                output_shape=[batch_size, out_img_shape, out_img_shape, output_size], strides=[1, 2, 2, 1], padding="SAME")
     n = p.shape[1] * p.shape[2] * p.shape[3]
     std_dev = np.sqrt(2.0 / n.value)
-    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([output_size], mean=0.0, stddev=std_dev)))
+    p = tf.nn.bias_add(p, tf.Variable(tf.random_normal([output_size], mean=0.0, stddev=0.02)))
     p = activation(p)
     return p
 
@@ -155,6 +155,8 @@ def build_net_unet_v2():
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                             labels=tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
+    global current_global_step
+    current_global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name="global_step")
     optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
 
     return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer"), None, None
@@ -166,13 +168,9 @@ def build_net():
         x = tf.image.grayscale_to_rgb(x)
     y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
-    p, _ = encode_layer(input=x, feature_maps=64, initializer=initializer, training=training, max_pooling=False)
-    p, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training) #52
-    p, c1 = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
+    p, _ = encode_layer(input=x, feature_maps=64, initializer=initializer, training=training) #52
     p, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training) #26
-    p, c2 = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training, max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training) #13
-    p, c3 = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training, max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training) #7
 
     p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
@@ -199,7 +197,9 @@ def build_net():
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(out_layer, shape=(-1, 1)),
                                                                labels= tf.reshape(y, shape=(-1, 1)))
     loss = tf.reduce_mean(cross_entropy)
-    optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
+    global current_global_step
+    current_global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name="global_step")
+    optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss, global_step=current_global_step)
 
     return loss, optimizer, tf.nn.sigmoid(out_layer, name="predictlayer"), lovasz, lovasz_optimize
 
@@ -267,16 +267,12 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
                 #cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = np.empty((0, config.img_size * config.img_size))
-                out_val = sess.run(out, feed_dict={
-                    "x:0": X_val, "training:0": False,
-                    "bth_size:0": X_val.shape[0]})
-
-                #for j in range(int(X_val.shape[0] / config.pred_step)):
-                #    out_val_pred = sess.run(out, feed_dict={"x:0": X_val[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-                #    out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"), axis=0)
-                #if (j + 1) * config.pred_step < X_val.shape[0]:
-                #    out_val_pred = sess.run(out, feed_dict={"x:0": X_val[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-                #    out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
+                for j in range(int(X_val.shape[0] / config.pred_step)):
+                    out_val_pred = sess.run(out, feed_dict={"x:0": X_val[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+                    out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"), axis=0)
+                if (j + 1) * config.pred_step < X_val.shape[0]:
+                    out_val_pred = sess.run(out, feed_dict={"x:0": X_val[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+                    out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
 
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
@@ -294,12 +290,12 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
             ii += 1
         print("Total batches {}".format(ii))
     cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch})
+    if config.save_model and i % config.save_model_step == 0:
+        util.save_tf_model(sess, current_global_step)
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
     #print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
     print("Total time {} sec".format(time.time() - start_t))
-    if config.save_model:
-        util.save_tf_model(sess)
     if final_prediction:
         print("Devising testset results...")
         y_pred = np.empty((0, config.img_size *  config.img_size))
@@ -351,28 +347,52 @@ if __name__ == "__main__":
         loss, optimizer, out, lovasz, lovasz_opt = build_net_unet_v2()
     else:
         loss, optimizer, out, lovasz, lovasz_opt = build_net()
-    if os.path.isfile(os.path.join(config.CACHE_PATH, "{}.meta".format(config.MODEL_FILENAME))):
+    if os.path.isfile(os.path.join(config.CHECKPOINTS_PATH, "{}.meta".format(config.MODEL_FILENAME))):
         print("Restoring model...")
-        sess = tf.Session()
-        util.reset_vars(sess)
-        saver = tf.train.import_meta_graph(os.path.join(config.CACHE_PATH, "{}.meta".format(config.MODEL_FILENAME)))
-        saver.restore(sess, tf.train.latest_checkpoint(config.CACHE_PATH))
+        saver = tf.train.import_meta_graph(os.path.join(config.CHECKPOINTS_PATH, "{}.meta".format(config.MODEL_FILENAME)))
+        saver.restore(sess, tf.train.latest_checkpoint(config.CHECKPOINTS_PATH))
         # Now, let's access and create placeholders variables and
         # create feed-dict to feed new data
         graph = tf.get_default_graph()
         print(graph)
         # Now, access the op that you want to run.
         op_to_restore = graph.get_tensor_by_name("predictlayer:0")
+        x_in = graph.get_tensor_by_name("x:0")
+        bth_size = graph.get_tensor_by_name("bth_size:0")
+        training = graph.get_tensor_by_name("training:0")
         print("Devising testset results...")
-        y_pred = np.empty((0, config.img_size, config.img_size, 1))
+        y_pred = np.empty((0, config.img_size * config.img_size))
+        X_test_aug = []
+        if config.tta:
+            X_test_aug = util.tta_augment(X_test)
         for j in range(int(X_test.shape[0] / config.pred_step)):
             print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-            y_pred = np.append(y_pred, y1, axis=0)
+            y1 = sess.run(op_to_restore, feed_dict={x_in: X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
+                                          training: False, bth_size: config.pred_step})
+            y_aug = []
+            y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
+            for trans, aug in X_test_aug.items():
+                y_tmp = sess.run(op_to_restore, feed_dict={x_in: aug[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
+                                                 training: False, bth_size: config.pred_step})
+                y_tmp = util.deaugment(y_tmp, trans)
+                y_aug.append(y_tmp.reshape((-1, config.img_size * config.img_size), order="F"))
+            y_aug = np.array(y_aug)
+            y_mean = y_aug.mean(axis=0)
+            y_pred = np.append(y_pred, y_mean, axis=0)
+
         if (j + 1) * config.pred_step < X_test.shape[0]:
             print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(op_to_restore, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
-            y_pred = np.append(y_pred, y1, axis=0)
+            y1 = sess.run(op_to_restore, feed_dict={x_in: X_test[(j + 1) * config.pred_step:, :, :, :], training: False,
+                                          bth_size: config.pred_step})
+            y_aug = []
+            y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
+            for aug in X_test_aug:
+                y_aug.append(sess.run(op_to_restore, feed_dict={x_in: aug[(j + 1) * config.pred_step:, :, :, :],
+                                                      training: False, bth_size: config.pred_step}).reshape(
+                    (-1, config.img_size * config.img_size), order="F"))
+            y_aug = np.array(y_aug)
+            y_mean = y_aug.mean(axis=0)
+            y_pred = np.append(y_pred, y_mean, axis=0)
     else:
         ious = []
         costs = []

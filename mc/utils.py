@@ -8,7 +8,7 @@ import dill
 import tensorflow as tf
 import Augmentor
 from config import config, resize_image, img_size, tta
-from config import MODEL_FILENAME, CACHE_PATH
+from config import MODEL_FILENAME, CACHE_PATH, CHECKPOINTS_PATH
 
 def metric_iou(pred, mask):
     both = pred + mask
@@ -258,9 +258,9 @@ def normalize_set(dataset=[]):
     #print("new target shape {}".format(target.shape))
     return dataset
 
-def save_tf_model(sess):
+def save_tf_model(sess, global_step):
     saver = tf.train.Saver()
-    saver.save(sess, os.path.join(CACHE_PATH, MODEL_FILENAME))
+    saver.save(sess, os.path.join(CHECKPOINTS_PATH, MODEL_FILENAME), global_step=global_step)
 
 def persist(filename, obj):
     with open(filename, 'wb') as file:

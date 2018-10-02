@@ -22,7 +22,9 @@ config = {
 }
 
 CACHE_PATH = os.path.abspath("./generated_data")
-MODEL_FILENAME = "nn_model.tf"
+CHECKPOINTS_PATH = os.path.abspath("./checkpoints")
+MODEL_FILENAME = "nn_model"
+STEP = 0
 
 n_cv = 1
 use_original_unet = True
@@ -31,6 +33,7 @@ skip_cv = True
 user_resnet = False
 momentum = 0.99
 save_model = False
+save_model_step = 2
 lovasz_epochs = -1
 use_lovasz_loss = False
 conv_to_rgb = False
