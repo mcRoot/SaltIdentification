@@ -277,9 +277,10 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                     out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
 
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
-                util.persist(os.path.join(config.CACHE_PATH, "out_val-{}.pck".format(i)), out_val)
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
-                util.persist(os.path.join(config.CACHE_PATH, "mask_val-{}.pck".format(i)), mask_val_tmp)
+                if config.save_model and i % config.save_model_step == 0:
+                    util.persist(os.path.join(config.CACHE_PATH, "out_val-{}.pck".format(i)), out_val)
+                    util.persist(os.path.join(config.CACHE_PATH, "mask_val-{}.pck".format(i)), mask_val_tmp)
                 print("Tot val samples {}".format(out_val.shape[0]))
                 def_res = util.devise_complete_iou_results(out_val, mask_val_tmp, config.thresholds, config.kaggle_thresholds)
                 df_calc = pd.DataFrame(def_res)
