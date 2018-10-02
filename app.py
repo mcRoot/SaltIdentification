@@ -408,7 +408,7 @@ if __name__ == "__main__":
         i = 1
         final_prediction = False
         if not config.skip_cv:
-            for train_index, val_index in sss.split(X_train, df_coverage.coverage_cat):
+            for train_index, val_index in sss.split(X_train, df_coverage.salt):
                 print("Cross validation fold {}".format(i))
                 X_reduced_train = np.copy(X_train[train_index,:,:,:])
                 X_reduced_train_id = np.copy(X_train_id[train_index])
