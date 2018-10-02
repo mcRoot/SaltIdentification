@@ -265,13 +265,13 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
             if(not final_prediction and ii % config.display_steps == 0):
                 print("Validation results...")
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
-                cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                #cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+                '''
                 out_val = sess.run(out, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
-                #def_res = util.devise_complete_iou_results(out_val, mask_val_tmp, config.thresholds,
-                #                                           config.kaggle_thresholds)
                 '''
+
                 out_val = np.empty((0, config.img_size * config.img_size))
                 for j in range(int(X_val.shape[0] / config.pred_step)):
                     out_val_pred = sess.run(out, feed_dict={"x:0": X_val[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
@@ -283,10 +283,10 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
 
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
-                if config.save_model and i % config.save_model_step == 0:
-                    util.persist(os.path.join(config.CACHE_PATH, "out_val-{}.pck".format(i)), out_val)
-                    util.persist(os.path.join(config.CACHE_PATH, "mask_val-{}.pck".format(i)), mask_val_tmp)
-                '''
+                #if config.save_model and i % config.save_model_step == 0:
+                #    util.persist(os.path.join(config.CACHE_PATH, "out_val-{}.pck".format(i)), out_val)
+                #    util.persist(os.path.join(config.CACHE_PATH, "mask_val-{}.pck".format(i)), mask_val_tmp)
+
                 print("Tot val samples {}".format(out_val.shape[0]))
                 def_res = util.devise_complete_iou_results(out_val, mask_val_tmp, config.thresholds, config.kaggle_thresholds)
                 df_calc = pd.DataFrame(def_res)
