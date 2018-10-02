@@ -296,7 +296,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 df_empty = df_empty.append(df_calc)
 
                 print("Epoch {} Iteration {}".format(i, ii))
-                print("Loss -> train: {:.4f} test: {:.4f}".format(cost, cost_test))
+                print("Loss -> train: {:.4f} test: NA".format(cost))
                 print("IoUs {}".format(def_res))
                 step.append(ii * (i + 1))
                 cost_batch.append(cost)
