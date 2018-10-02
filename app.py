@@ -424,7 +424,7 @@ if __name__ == "__main__":
                 X_validation = np.copy(X_train[val_index,:,:,:])
                 X_mask_validation = np.copy(X_train_mask[val_index,:,:,:])
 
-                y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess)
+                y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess, final_prediction=True)
                 ious.append(("ious_val-{}.csv".format(i), df_empty))
                 costs.append(("costs_train-{}.csv".format(i), cost_df))
                 th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
@@ -443,10 +443,10 @@ if __name__ == "__main__":
                 c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
         else:
             th_max = 0.48
-        final_prediction = True
-        y_pred, df_empty, cost_df = train_net(X_train, X_train_mask, X_train_id, [],
-                                              [], X_test, loss, optimizer, lovasz_opt, lovasz, out, sess,
-                                              final_prediction=final_prediction)
+        #final_prediction = True
+        #y_pred, df_empty, cost_df = train_net(X_train, X_train_mask, X_train_id, [],
+        #                                      [], X_test, loss, optimizer, lovasz_opt, lovasz, out, sess,
+        #                                      final_prediction=final_prediction)
 
     print("Generating results: adopted threshold is: {}".format(th_max))
     no_test = y_pred.shape[0]
