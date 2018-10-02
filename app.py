@@ -236,7 +236,6 @@ def get_next_batch(X, mask, id):
 
 def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess, final_prediction=False):
     print("Training...")
-    rnd = np.random.RandomState(seed=1977)
     util.reset_vars(sess)
     start_t = time.time()
     step = []
@@ -446,7 +445,7 @@ if __name__ == "__main__":
     util.persist(os.path.join(config.CACHE_PATH, "pred_def.pck"), y_pred_def)
     #y_pred_def.shape[0] == 18000
 
-    for curr_th in config.threshold:
+    for curr_th in config.thresholds:
         y_pred_def = (y_pred_def > curr_th) * 1
 
         to_submit = {idx: util.convert_for_submission(y_pred_def[i,:]) for i, idx in enumerate(X_test_id)}
