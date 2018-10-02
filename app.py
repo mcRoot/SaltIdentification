@@ -259,6 +259,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
         ii = 0
         for batch, mask_batch, id_batch in get_next_batch(X, mask, id_tr):
             if config.user_resnet or config.use_original_unet:
+                print("Optimize for ResNet")
                 sess.run([optimizer_fn, batch_norm_ops], feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
             else:
                 sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
@@ -301,10 +302,10 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 step.append(ii * (i + 1))
                 cost_batch.append(cost)
             ii += 1
+            if config.save_model and i % config.save_model_step == 0:
+                util.save_tf_model(sess, current_global_step)
         print("Total batches {}".format(ii))
     cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch})
-    if config.save_model and i % config.save_model_step == 0:
-        util.save_tf_model(sess, current_global_step)
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
     #print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
