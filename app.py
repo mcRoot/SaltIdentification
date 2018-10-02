@@ -386,8 +386,7 @@ if __name__ == "__main__":
         if (j + 1) * config.pred_step < X_test.shape[0]:
             print("[{}] predicting...".format((j + 1)))
             left_test_set = X_test[(j + 1) * config.pred_step:, :, :, :]
-            y1 = sess.run(out,
-                          feed_dict={"x:0": left_test_set, "training:0": False, "bth_size:0": left_test_set.shape[0]}
+            y1 = sess.run(out, feed_dict={"x:0": left_test_set, "training:0": False, "bth_size:0": left_test_set.shape[0]})
             y_aug = []
             y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
             for aug in X_test_aug:
