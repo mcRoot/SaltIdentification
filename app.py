@@ -83,13 +83,13 @@ def encode_layer_norm(input=None, feature_maps=32, initializer=None, activation=
     return p, None
 
 def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
-    p = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
+    p = tf.layers.conv2d(input, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     p = activation(p)
     #p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
     #p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
     #p = activation(p)
-    p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
+    p = tf.layers.conv2d(p, feature_maps, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
 
     if input.shape[3] != feature_maps:
@@ -97,7 +97,7 @@ def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activatio
     else:
         input_mod = input
     p = p + input_mod
-    p = tf.nn.relu(p)
+    p = activation(p)
     to_copy = p
     if max_pooling:
         p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
