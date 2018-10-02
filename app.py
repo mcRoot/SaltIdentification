@@ -262,7 +262,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 sess.run([optimizer_fn, batch_norm_ops], feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
             else:
                 sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
-            if(not final_prediction and ii % config.display_steps == 0):
+            if(ii % config.display_steps == 0):
                 print("Validation results...")
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
                 #cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
