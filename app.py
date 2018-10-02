@@ -174,7 +174,7 @@ def build_net():
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training) #7
 
     p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
-
+    print(p)
     bth_size = tf.placeholder(tf.int32, name="bth_size")
 
     p = decode_layer(input=p, input_size=1024, output_size=512, out_img_shape=13, batch_size=bth_size)
@@ -264,6 +264,7 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
             else:
                 sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
             if(not final_prediction and ii % config.display_steps == 0):
+                print("Validation results...")
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
                 #cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
                 out_val = np.empty((0, config.img_size * config.img_size))
