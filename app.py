@@ -272,7 +272,8 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                     out_val_pred = sess.run(out, feed_dict={"x:0": X_val[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
                     out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"), axis=0)
                 if (j + 1) * config.pred_step < X_val.shape[0]:
-                    out_val_pred = sess.run(out, feed_dict={"x:0": X_val[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+                    left_val_set = X_val[(j + 1) * config.pred_step:, :, :, :]
+                    out_val_pred = sess.run(out, feed_dict={"x:0": left_val_set, "training:0": False, "bth_size:0": left_val_set.shape[0]})
                     out_val = np.append(out_val, out_val_pred.reshape((-1, config.img_size * config.img_size), order="F"))
 
                 out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
@@ -319,7 +320,8 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
 
         if (j + 1) * config.pred_step < X_test.shape[0]:
             print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(out, feed_dict={"x:0": X_test[(j + 1) * config.pred_step:, :, :, :], "training:0": False, "bth_size:0": config.pred_step})
+            left_test_set = X_test[(j + 1) * config.pred_step:, :, :, :]
+            y1 = sess.run(out, feed_dict={"x:0": left_test_set, "training:0": False, "bth_size:0": left_test_set.shape[0]})
             y_aug = []
             y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
             for aug in X_test_aug:
@@ -383,8 +385,9 @@ if __name__ == "__main__":
 
         if (j + 1) * config.pred_step < X_test.shape[0]:
             print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(op_to_restore, feed_dict={x_in: X_test[(j + 1) * config.pred_step:, :, :, :], training: False,
-                                          bth_size: config.pred_step})
+            left_test_set = X_test[(j + 1) * config.pred_step:, :, :, :]
+            y1 = sess.run(out,
+                          feed_dict={"x:0": left_test_set, "training:0": False, "bth_size:0": left_test_set.shape[0]}
             y_aug = []
             y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
             for aug in X_test_aug:
