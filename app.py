@@ -259,7 +259,6 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
         ii = 0
         for batch, mask_batch, id_batch in get_next_batch(X, mask, id_tr):
             if config.user_resnet or config.use_original_unet:
-                print("Optimize for ResNet")
                 sess.run([optimizer_fn, batch_norm_ops], feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
             else:
                 sess.run(optimizer_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": True, "bth_size:0": len(batch)})
