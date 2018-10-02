@@ -409,11 +409,11 @@ if __name__ == "__main__":
         if not config.skip_cv:
             for train_index, val_index in sss.split(X_train, df_coverage.coverage_cat):
                 print("Cross validation fold {}".format(i))
-                X_reduced_train = X_train[train_index,:,:,:]
-                X_reduced_train_id = X_train_id[train_index]
-                X_mask_red = X_train_mask[train_index,:,:,:]
-                X_validation = X_train[val_index,:,:,:]
-                X_mask_validation = X_train_mask[val_index,:,:,:]
+                X_reduced_train = np.copy(X_train[train_index,:,:,:])
+                X_reduced_train_id = np.copy(X_train_id[train_index])
+                X_mask_red = np.copy(X_train_mask[train_index,:,:,:])
+                X_validation = np.copy(X_train[val_index,:,:,:])
+                X_mask_validation = np.copy(X_train_mask[val_index,:,:,:])
 
                 y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess)
                 ious.append(("ious_val-{}.csv".format(i), df_empty))
