@@ -45,6 +45,7 @@ n_out_layers = 1
 n_channels = 1
 kernel_size = [3, 3]
 epochs = 10
+early_stopping_no_epochs = 7
 batch_size = 120
 display_steps = 500
 learning_rate = 0.01

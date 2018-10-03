@@ -255,7 +255,14 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
         batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
     g = tf.get_default_graph()
+    best_result = 0
+    past_epochs_best_results = 0
+    stop_training = False
     for i in range(config.epochs):
+        if stop_training:
+            print("Stop training: no improvements in the last {} epochs".format(past_epochs_best_results))
+            break
+
         print("Epoch {}, elapsed min {:.2f}".format(i, ((time.time() - float(start_t)) / 60.0)))
         if (config.epochs - (i + 1)) <= config.lovasz_epochs:
             loss_fn = lovasz
@@ -270,11 +277,6 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 print("Validation results...")
                 cost = sess.run(loss_fn, feed_dict={"x:0": batch, "y:0": mask_batch, "training:0": False, "bth_size:0": len(batch)})
                 #cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
-                '''
-                out_val = sess.run(out, feed_dict={"x:0": X_val, "training:0": False, "bth_size:0": X_val.shape[0]})
-                out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
-                mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
-                '''
 
                 out_val = np.empty((0, config.img_size * config.img_size))
                 for j in range(int(X_val.shape[0] / config.pred_step)):
@@ -287,7 +289,6 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                     out_val_pred = out_val_pred.reshape((-1, config.img_size * config.img_size), order="F")
                     out_val = np.append(out_val, out_val_pred, axis=0)
 
-                #out_val = out_val.reshape((-1, config.img_size * config.img_size), order="F")
                 mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
                 #if config.save_model and i % config.save_model_step == 0:
                 #    util.persist(os.path.join(config.CACHE_PATH, "out_val-{}.pck".format(i)), out_val)
@@ -295,6 +296,16 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
 
                 print("Tot val samples {}".format(out_val.shape[0]))
                 def_res = util.devise_complete_iou_results(out_val, mask_val_tmp, config.thresholds, config.kaggle_thresholds)
+                max_score = max([s for (_, s) in def_res.items()])
+                if max_score > best_result:
+                    best_result = max_score
+                    past_epochs_best_results = 0
+                else:
+                    past_epochs_best_results += 1
+                    if past_epochs_best_results >= config.early_stopping_no_epochs:
+                        stop_training = True
+
+
                 df_calc = pd.DataFrame(def_res)
                 df_calc['epoch'] = (ii * (i + 1))
                 df_empty = df_empty.append(df_calc)
@@ -305,14 +316,17 @@ def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_o
                 step.append(ii * (i + 1))
                 cost_batch.append(cost)
             ii += 1
-            if config.save_model and i % config.save_model_step == 0:
-                util.save_tf_model(sess, current_global_step)
         print("Total batches {}".format(ii))
     cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch})
     #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
     #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
     #print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
     print("Total time {} sec".format(time.time() - start_t))
+
+    #saving model
+    if config.save_model:
+        util.save_tf_model(sess, current_global_step)
+
     if final_prediction:
         print("Devising testset results...")
         y_pred = np.empty((0, config.img_size *  config.img_size))
