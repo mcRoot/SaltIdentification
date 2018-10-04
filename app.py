@@ -238,6 +238,138 @@ def get_next_batch(X, mask, id):
         yield np.copy(X[start_index:start_index+config.batch_size, :, :, :]), np.copy(mask[start_index:start_index+config.batch_size, :, :, :]), np.copy(id[start_index:start_index+config.batch_size])
         start_index += config.batch_size
 
+def train_restored_model(X, mask, id_tr, X_val, mask_val, X_test, sess, final_prediction=False):
+    graph = tf.get_default_graph()
+    # Now, access the op that you want to run.
+    out_predict = graph.get_tensor_by_name("predictlayer:0")
+    adam = graph.get_tensor_by_name("Adam:0")
+    x_in = graph.get_tensor_by_name("x:0")
+    y_target = graph.get_tensor_by_name("y:0")
+    bth_size = graph.get_tensor_by_name("bth_size:0")
+    training = graph.get_tensor_by_name("training:0")
+    loss = graph.get_tensor_by_name("Mean:0")
+    print("Training...")
+    start_t = time.time()
+    step = []
+    cost_batch = []
+    ious = None
+    df_empty = pd.DataFrame({th: [] for th in config.thresholds})
+    df_empty['epoch'] = []
+    loss_fn = loss
+    optimizer_fn = adam
+    batch_norm_ops = []
+    if config.user_resnet or config.use_original_unet:
+        print("Use batch norm ops...")
+        batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
+    g = tf.get_default_graph()
+    best_result = 0
+    past_epochs_best_results = 0
+    stop_training = False
+    for i in range(config.epochs):
+        if stop_training:
+            print("Stop training: no improvements in the last {} epochs".format(past_epochs_best_results))
+            break
+
+        print("Epoch {}, elapsed min {:.2f}".format(i, ((time.time() - float(start_t)) / 60.0)))
+        ii = 0
+        for batch, mask_batch, id_batch in get_next_batch(X, mask, id_tr):
+            if config.user_resnet or config.use_original_unet:
+                sess.run([optimizer_fn, batch_norm_ops], feed_dict={x_in: batch, y_target: mask_batch, training: True, bth_size: len(batch)})
+            else:
+                sess.run(optimizer_fn, feed_dict={x_in: batch, y_target: mask_batch, training: True, bth_size: len(batch)})
+            if(ii % config.display_steps == 0):
+                print("Validation results...")
+                cost = sess.run(loss_fn, feed_dict={x_in: batch, y_target: mask_batch, training: False, bth_size: len(batch)})
+                #cost_test = sess.run(loss_fn, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+
+                out_val = np.empty((0, config.img_size * config.img_size))
+                for j in range(int(X_val.shape[0] / config.pred_step)):
+                    out_val_pred = sess.run(out_predict, feed_dict={x_in: X_val[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], "training:0": False, bth_size: config.pred_step})
+                    out_val_pred = out_val_pred.reshape((-1, config.img_size * config.img_size), order="F")
+                    out_val = np.append(out_val, out_val_pred, axis=0)
+                if (j + 1) * config.pred_step < X_val.shape[0]:
+                    left_val_set = X_val[(j + 1) * config.pred_step:, :, :, :]
+                    out_val_pred = sess.run(out_predict, feed_dict={x_in: left_val_set, training: False, bth_size: left_val_set.shape[0]})
+                    out_val_pred = out_val_pred.reshape((-1, config.img_size * config.img_size), order="F")
+                    out_val = np.append(out_val, out_val_pred, axis=0)
+
+                mask_val_tmp = mask_val.reshape((-1, config.img_size * config.img_size), order="F")
+                #if config.save_model and i % config.save_model_step == 0:
+                #    util.persist(os.path.join(config.CACHE_PATH, "out_val-{}.pck".format(i)), out_val)
+                #    util.persist(os.path.join(config.CACHE_PATH, "mask_val-{}.pck".format(i)), mask_val_tmp)
+
+                print("Tot val samples {}".format(out_val.shape[0]))
+                def_res = util.devise_complete_iou_results(out_val, mask_val_tmp, config.thresholds, config.kaggle_thresholds)
+                max_score = max([s for (_, s) in def_res.items()])
+                if max_score > best_result:
+                    best_result = max_score
+                    past_epochs_best_results = 0
+                else:
+                    past_epochs_best_results += 1
+                    if past_epochs_best_results >= config.early_stopping_no_epochs:
+                        stop_training = True
+
+
+                df_calc = pd.DataFrame(def_res)
+                df_calc['epoch'] = (ii * (i + 1))
+                df_empty = df_empty.append(df_calc)
+
+                print("Epoch {} Iteration {}".format(i, ii))
+                print("Loss -> train: {:.4f} test: NA".format(cost))
+                print("IoUs {}".format(def_res))
+                step.append(ii * (i + 1))
+                cost_batch.append(cost)
+            ii += 1
+        print("Total batches {}".format(ii))
+    cost_df = pd.DataFrame({"epoch": step, "cost_batch": cost_batch})
+    #cost = sess.run(loss, feed_dict={"x:0": X, "y:0": mask, "training:0": False, "bth_size:0": X.shape[0]})
+    #cost_test = sess.run(loss, feed_dict={"x:0": X_val, "y:0": mask_val, "training:0": False, "bth_size:0": X_val.shape[0]})
+    #print("Loss -> train: {:.4f}, test: {:.4f}".format(cost, cost_test))
+    print("Total time {} sec".format(time.time() - start_t))
+
+    #saving model
+    if config.save_model:
+        util.save_tf_model(sess, current_global_step)
+
+    if final_prediction:
+        print("Devising testset results...")
+        y_pred = np.empty((0, config.img_size *  config.img_size))
+        X_test_aug = []
+        if config.tta:
+            X_test_aug = util.tta_augment(X_test)
+        for j in range(int(X_test.shape[0] / config.pred_step)):
+            print("[{}] predicting...".format((j + 1)))
+            y1 = sess.run(out_predict, feed_dict={x_in: X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :], training: False, bth_size: config.pred_step})
+            y_aug = []
+            y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
+            for trans, aug in X_test_aug.items():
+                y_tmp = sess.run(out_predict, feed_dict={x_in: aug[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
+                                         training: False, bth_size: config.pred_step})
+                y_tmp = util.deaugment(y_tmp, trans)
+                y_aug.append(y_tmp.reshape((-1, config.img_size * config.img_size), order="F"))
+            y_aug = np.array(y_aug)
+            y_mean = y_aug.mean(axis=0)
+            y_pred = np.append(y_pred, y_mean, axis=0)
+
+        if (j + 1) * config.pred_step < X_test.shape[0]:
+            print("[{}] predicting...".format((j + 1)))
+            left_test_set = X_test[(j + 1) * config.pred_step:, :, :, :]
+            y1 = sess.run(out_predict, feed_dict={x_in: left_test_set, training: False, bth_size: left_test_set.shape[0]})
+            y_aug = []
+            y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
+            for aug in X_test_aug:
+                y_aug.append(sess.run(out_predict, feed_dict={x_in: aug[(j + 1) * config.pred_step:, :, :, :],
+                                                      training: False, bth_size: config.pred_step}).reshape(
+                    (-1, config.img_size * config.img_size), order="F"))
+            y_aug = np.array(y_aug)
+            y_mean = y_aug.mean(axis=0)
+            y_pred = np.append(y_pred, y_mean, axis=0)
+    else:
+        y_pred = np.empty((0, config.img_size * config.img_size))
+
+    return y_pred, df_empty, cost_df
+
 def train_net(X, mask, id_tr, X_val, mask_val, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess, final_prediction=False):
     print("Training...")
     util.reset_vars(sess)
@@ -371,100 +503,63 @@ if __name__ == "__main__":
     X_train, X_train_id, X_train_mask, X_test, X_test_id = preprocess()
     df_coverage = pd.read_csv(os.path.join(config.config["base_path"], "coverage-cat.csv"))
     X_train, X_train_mask, X_train_id, df_coverage = shuffle_set(X_train, X_train_mask, X_train_id, df_coverage)
-
+    restored_model = False
     #X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_validation_id = train_validation(X_train, X_train_mask, X_train_id)
     sess = util.reset_tf(None)
-    if config.use_original_unet:
-        print("Using original UNET model")
-        loss, optimizer, out, lovasz, lovasz_opt = build_net_unet_v2()
-    else:
-        loss, optimizer, out, lovasz, lovasz_opt = build_net()
-    if os.path.isfile(os.path.join(config.CHECKPOINTS_PATH, "{}.meta".format(config.MODEL_FILENAME))):
+    if os.path.isfile(os.path.join(config.CHECKPOINTS_PATH, "{}-{}.meta".format(config.MODEL_FILENAME, config.STEP))):
         print("Restoring model...")
-        saver = tf.train.import_meta_graph(os.path.join(config.CHECKPOINTS_PATH, "{}.meta".format(config.MODEL_FILENAME)))
-        saver.restore(sess, tf.train.latest_checkpoint(config.CHECKPOINTS_PATH))
+        saver = tf.train.import_meta_graph(os.path.join(config.CHECKPOINTS_PATH, "{}-{}.meta".format(config.MODEL_FILENAME, config.STEP)))
+        saver.restore(sess, os.path.join(config.CHECKPOINTS_PATH, "{}-{}".format(config.MODEL_FILENAME, config.STEP)))
+        restored_model = True
         # Now, let's access and create placeholders variables and
         # create feed-dict to feed new data
-        graph = tf.get_default_graph()
-        print(graph)
-        # Now, access the op that you want to run.
-        op_to_restore = graph.get_tensor_by_name("predictlayer:0")
-        x_in = graph.get_tensor_by_name("x:0")
-        bth_size = graph.get_tensor_by_name("bth_size:0")
-        training = graph.get_tensor_by_name("training:0")
-        print("Devising testset results...")
-        y_pred = np.empty((0, config.img_size * config.img_size))
-        X_test_aug = []
-        if config.tta:
-            X_test_aug = util.tta_augment(X_test)
-        for j in range(int(X_test.shape[0] / config.pred_step)):
-            print("[{}] predicting...".format((j + 1)))
-            y1 = sess.run(op_to_restore, feed_dict={x_in: X_test[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
-                                          training: False, bth_size: config.pred_step})
-            y_aug = []
-            y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
-            for trans, aug in X_test_aug.items():
-                y_tmp = sess.run(op_to_restore, feed_dict={x_in: aug[j * config.pred_step:(j + 1) * config.pred_step, :, :, :],
-                                                 training: False, bth_size: config.pred_step})
-                y_tmp = util.deaugment(y_tmp, trans)
-                y_aug.append(y_tmp.reshape((-1, config.img_size * config.img_size), order="F"))
-            y_aug = np.array(y_aug)
-            y_mean = y_aug.mean(axis=0)
-            y_pred = np.append(y_pred, y_mean, axis=0)
 
-        if (j + 1) * config.pred_step < X_test.shape[0]:
-            print("[{}] predicting...".format((j + 1)))
-            left_test_set = X_test[(j + 1) * config.pred_step:, :, :, :]
-            y1 = sess.run(out, feed_dict={"x:0": left_test_set, "training:0": False, "bth_size:0": left_test_set.shape[0]})
-            y_aug = []
-            y_aug.append(y1.reshape((-1, config.img_size * config.img_size), order="F"))
-            for aug in X_test_aug:
-                y_aug.append(sess.run(op_to_restore, feed_dict={x_in: aug[(j + 1) * config.pred_step:, :, :, :],
-                                                      training: False, bth_size: config.pred_step}).reshape(
-                    (-1, config.img_size * config.img_size), order="F"))
-            y_aug = np.array(y_aug)
-            y_mean = y_aug.mean(axis=0)
-            y_pred = np.append(y_pred, y_mean, axis=0)
-    else:
-        ious = []
-        costs = []
-        ths = []
-        sss = StratifiedShuffleSplit(n_splits=config.n_cv, test_size=config.validation_perc, random_state=42)
-        #X_train, X_train_id, X_train_mask
-        i = 1
-        final_prediction = False
-        if not config.skip_cv:
-            for train_index, val_index in sss.split(X_train, df_coverage.coverage_cat):
-                print("Cross validation fold {}".format(i))
-                X_reduced_train = np.copy(X_train[train_index,:,:,:])
-                X_reduced_train_id = np.copy(X_train_id[train_index])
-                X_mask_red = np.copy(X_train_mask[train_index,:,:,:])
-                X_validation = np.copy(X_train[val_index,:,:,:])
-                X_mask_validation = np.copy(X_train_mask[val_index,:,:,:])
-
+    ious = []
+    costs = []
+    ths = []
+    sss = StratifiedShuffleSplit(n_splits=config.n_cv, test_size=config.validation_perc, random_state=42)
+    #X_train, X_train_id, X_train_mask
+    i = 1
+    final_prediction = False
+    if not config.skip_cv:
+        for train_index, val_index in sss.split(X_train, df_coverage.coverage_cat):
+            print("Cross validation fold {}".format(i))
+            X_reduced_train = np.copy(X_train[train_index,:,:,:])
+            X_reduced_train_id = np.copy(X_train_id[train_index])
+            X_mask_red = np.copy(X_train_mask[train_index,:,:,:])
+            X_validation = np.copy(X_train[val_index,:,:,:])
+            X_mask_validation = np.copy(X_train_mask[val_index,:,:,:])
+            if restored_model:
+                y_pred, df_empty, cost_df = train_restored_model(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, sess, final_prediction=True)
+            else:
+                if config.use_original_unet:
+                    print("Using original UNET model")
+                    loss, optimizer, out, lovasz, lovasz_opt = build_net_unet_v2()
+                else:
+                    loss, optimizer, out, lovasz, lovasz_opt = build_net()
                 y_pred, df_empty, cost_df = train_net(X_reduced_train, X_mask_red, X_reduced_train_id, X_validation, X_mask_validation, X_test, loss, optimizer, lovasz_opt, lovasz, out, sess, final_prediction=True)
-                ious.append(("ious_val-{}.csv".format(i), df_empty))
-                costs.append(("costs_train-{}.csv".format(i), cost_df))
-                th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
-                ths.append(th_max)
+            ious.append(("ious_val-{}.csv".format(i), df_empty))
+            costs.append(("costs_train-{}.csv".format(i), cost_df))
+            th_max = df_empty.tail(1)[config.thresholds].idxmax(axis=1).values[0]
+            ths.append(th_max)
 
-                #df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
-                #cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
+            #df_empty.to_csv(os.path.join(config.CACHE_PATH, "ious_val.csv"))
+            #cost_df.to_csv(os.path.join(config.CACHE_PATH, "costs_train.csv"))
 
-                i += 1
-            print("Thresholds {}".format(ths))
-            th_max = sum(ths) / float(len(ths))
-            print("Max threshold {}".format(th_max))
-            for c in costs:
-                c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
-            for c in ious:
-                c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
-        else:
-            th_max = 0.48
-        #final_prediction = True
-        #y_pred, df_empty, cost_df = train_net(X_train, X_train_mask, X_train_id, [],
-        #                                      [], X_test, loss, optimizer, lovasz_opt, lovasz, out, sess,
-        #                                      final_prediction=final_prediction)
+            i += 1
+        print("Thresholds {}".format(ths))
+        th_max = sum(ths) / float(len(ths))
+        print("Max threshold {}".format(th_max))
+        for c in costs:
+            c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
+        for c in ious:
+            c[1].to_csv(os.path.join(config.CACHE_PATH, c[0]))
+    else:
+        th_max = 0.48
+    #final_prediction = True
+    #y_pred, df_empty, cost_df = train_net(X_train, X_train_mask, X_train_id, [],
+    #                                      [], X_test, loss, optimizer, lovasz_opt, lovasz, out, sess,
+    #                                      final_prediction=final_prediction)
 
     print("Generating results: adopted threshold is: {}".format(th_max))
     no_test = y_pred.shape[0]
