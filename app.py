@@ -211,7 +211,6 @@ def build_net():
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
-    p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training) #7
 
     p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
     print(p)
