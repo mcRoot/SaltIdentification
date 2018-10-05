@@ -47,7 +47,7 @@ def preprocess():
 
 def encode_layer(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
     if config.user_resnet:
-        return encode_layer_resnet(input=input, feature_maps=feature_maps, initializer=initializer, activation=activation, training=training, max_pooling=max_pooling)
+        return encode_layer_resnet_bis(input=input, feature_maps=feature_maps, initializer=initializer, activation=activation, training=training, max_pooling=max_pooling)
     else:
         return encode_layer_norm(input=input, feature_maps=feature_maps, initializer=initializer, activation=activation, training=training, max_pooling=max_pooling)
 
@@ -101,6 +101,28 @@ def encode_layer_resnet(input=None, feature_maps=32, initializer=None, activatio
     to_copy = p
     if max_pooling:
         p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+    return p, to_copy
+
+def encode_layer_resnet_bis(input=None, feature_maps=32, initializer=None, activation=tf.nn.relu, training=None, max_pooling=True):
+    s = 1
+    if max_pooling:
+        s = 2
+    p = tf.layers.conv2d(input, feature_maps // 4, 1, kernel_initializer=initializer, padding="same", activation=None, strides=s)
+    p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+    p = activation(p)
+    p = tf.layers.conv2d(p, feature_maps // 4, config.kernel_size, kernel_initializer=initializer, padding="same", activation=None)
+    p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+    p = activation(p)
+    p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
+    p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
+
+    if max_pooling:
+        input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None, strides=s)
+    else:
+        input_mod = input
+    p = p + input_mod
+    p = activation(p)
+    to_copy = p
     return p, to_copy
 
 def decode_layer(input=None, input_size=2048, output_size=1024, out_img_shape=4, batch_size=None, activation=tf.nn.relu):
@@ -168,24 +190,22 @@ def build_net():
         x = tf.image.grayscale_to_rgb(x)
     y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
-    p, _ = encode_layer(input=x, feature_maps=64, initializer=initializer, training=training,  max_pooling=False)
+    p = tf.layers.conv2d(x, 64, 7, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-start")
+    p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
     p, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training,  max_pooling=False)
-    c1, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training) #52
-    p, _ = encode_layer(input=c1, feature_maps=128, initializer=initializer, training=training,  max_pooling=False)
+    c1, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training, max_pooling=False) #52
+    p, _ = encode_layer(input=c1, feature_maps=128, initializer=initializer, training=training)
     p, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
-    p, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
-    p, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
-    c2, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training) #26
-    p, _ = encode_layer(input=c2, feature_maps=256, initializer=initializer, training=training,  max_pooling=False)
+    c2, _ = encode_layer(input=p, feature_maps=128, initializer=initializer, training=training, max_pooling=False)
+    p, _ = encode_layer(input=c2, feature_maps=256, initializer=initializer, training=training)
     p, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training,  max_pooling=False)
-    c3, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training) #13
-    p, _ = encode_layer(input=c3, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
-    p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
+    c3, _ = encode_layer(input=p, feature_maps=256, initializer=initializer, training=training,  max_pooling=False)
+    p, _ = encode_layer(input=c3, feature_maps=512, initializer=initializer, training=training)
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
