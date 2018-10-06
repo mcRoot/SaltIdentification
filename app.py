@@ -118,7 +118,7 @@ def encode_layer_resnet_bis(input=None, feature_maps=32, initializer=None, activ
     p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
 
-    if input.shape[3] != feature_maps:
+    if max_pooling:
         input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding=padding, activation=None, strides=s)
     else:
         input_mod = input
@@ -192,7 +192,7 @@ def build_net():
         x = tf.image.grayscale_to_rgb(x)
     y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
-    p, _ = encode_layer(input=x, feature_maps=32, initializer=initializer, training=training)
+    p, _ = encode_layer(input=x, feature_maps=64, initializer=initializer, training=training)
     p, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training,  max_pooling=False)
     c1, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training, max_pooling=False)
