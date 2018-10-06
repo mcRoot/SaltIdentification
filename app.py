@@ -118,7 +118,7 @@ def encode_layer_resnet_bis(input=None, feature_maps=32, initializer=None, activ
     p = tf.layers.conv2d(p, feature_maps, 1, kernel_initializer=initializer, padding="same", activation=None)
     p = tf.layers.batch_normalization(p, training=training, momentum=config.momentum)
 
-    if max_pooling:
+    if input.shape[3] != feature_maps:
         input_mod = tf.layers.conv2d(input, feature_maps, 1, kernel_initializer=initializer, padding=padding, activation=None, strides=s)
     else:
         input_mod = input
