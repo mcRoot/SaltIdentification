@@ -192,9 +192,7 @@ def build_net():
         x = tf.image.grayscale_to_rgb(x)
     y = tf.placeholder(tf.float32, shape=[None, 101, 101, config.n_out_layers], name="y")
     training = tf.placeholder(tf.bool, name="training")
-    p = tf.layers.conv2d(x, 64, 7, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-start")
-    p = tf.nn.max_pool(p, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
-    p, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training,  max_pooling=False)
+    p, _ = encode_layer(input=x, feature_maps=64, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training,  max_pooling=False)
     c1, _ = encode_layer(input=p, feature_maps=64, initializer=initializer, training=training, max_pooling=False) #52
     p, _ = encode_layer(input=c1, feature_maps=128, initializer=initializer, training=training)
@@ -211,6 +209,7 @@ def build_net():
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
     p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training,  max_pooling=False)
+    p, _ = encode_layer(input=p, feature_maps=512, initializer=initializer, training=training)
 
     p = tf.layers.conv2d(p, 1024, config.kernel_size, kernel_initializer=initializer, padding="same", activation=tf.nn.relu, name="conv-9")
     print(p)
